@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "cucmtoolkit"
+version = "0.1.0"
+description = "Python SDK for interacting with CUCM services and devices. Utilizes technologies such as AXL, RisPort, and CiscoIPPhone XML objects."
+authors = ["rlad78 <goobysc@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+zeep = "^4.1.0"
+
+[tool.poetry.dev-dependencies]
+black = "^21.9b0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
