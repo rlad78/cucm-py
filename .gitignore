@@ -279,3 +279,6 @@ $RECYCLE.BIN/
 /.venv
 /.vscode
 /.ipynb_checkpoints
+
+# Poetry
+*.lock
