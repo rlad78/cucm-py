@@ -9,6 +9,8 @@ Links:
  - https://developer.cisco.com/site/axl/
 """
 
+from cucmtoolkit.ciscoaxl.validation import validate_ucm_server, validate_axl_auth
+from cucmtoolkit.ciscoaxl.exceptions import *
 import re
 import os
 import urllib3
@@ -16,6 +18,7 @@ from pathlib import Path
 from requests import Session
 from requests.auth import HTTPBasicAuth
 from zeep import Client, Settings
+from zeep import exceptions
 from zeep.transports import Transport
 from zeep.cache import SqliteCache
 from zeep.exceptions import Fault
@@ -30,7 +33,7 @@ class axl(object):
     Python 3.6
     """
 
-    def __init__(self, username, password, cucm, cucm_version):
+    def __init__(self, username, password, cucm, cucm_version, port="8443"):
         """
         :param username: axl username
         :param password: axl password
@@ -61,13 +64,31 @@ class axl(object):
         self.password = password
         self.wsdl = wsdl
         self.cucm = cucm
+        self.cucm_port = port
         self.cucm_version = cucm_version
+
+        try:
+            ucm_validation = validate_ucm_server(cucm)
+        except (UCMInvalidError, UCMConnectionFailure, UCMNotFoundError) as err:
+            raise UCMException(err)
+        if not ucm_validation:
+            raise UCMException(
+                f"Could not connect to {cucm}, please check your server."
+            )
+
+        try:
+            axl_validation = validate_axl_auth(cucm, username, password, port)
+        except (AXLInvalidCredentials, AXLConnectionFailure, AXLNotFoundError) as err:
+            raise AXLException(err)
+        if not axl_validation:
+            raise AXLException()
+
         self.UUID_PATTERN = re.compile(
             r"^[\da-f]{8}-([\da-f]{4}-){3}[\da-f]{12}$", re.IGNORECASE
         )
         self.client = axl_client.create_service(
             "{http://www.cisco.com/AXLAPIService/}AXLAPIBinding",
-            f"https://{cucm}:8443/axl/",
+            f"https://{cucm}:{port}/axl/",
         )
 
     def get_locations(
