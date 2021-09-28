@@ -34,15 +34,19 @@ class axl(object):
     """
 
     def __init__(self, username, password, cucm, cucm_version, port="8443"):
-        """
-        :param username: axl username
-        :param password: axl password
-        :param cucm: UCM IP address
-        :param cucm_version: UCM version
+        """Main object for interfacing with the AXL API
 
-        example usage:
-        >>> from axl import AXL
-        >>> ucm = AXL('axl_user', 'axl_pass', '192.168.200.10')
+        Args:
+            username (str): Username for admin account with AXL access
+            password (str): Password for admin account
+            cucm (str): Server URL, without leading http/https
+            cucm_version (str): 11.0, 11.5, 12.0, etc.
+            port (str, optional): Port that points to your UCM instance
+                in relevance to the CUCM URL. Defaults to "8443".
+
+        Raises:
+            UCMException: when there is an issue connecting to the UCM server
+            AXLException: when there is an issue connecting to the AXL API
         """
 
         cwd = os.path.dirname(os.path.abspath(__file__))
@@ -1642,7 +1646,7 @@ class axl(object):
         :return: result dictionary
         """
         try:
-            return self.client.getLine(**args)
+            return self.client.getLine(**args)["return"]["line"]
         except Fault as e:
             return e
 
@@ -2357,7 +2361,7 @@ class axl(object):
             try:
                 return self.client.updateUser(
                     userid=user_id,
-                    phoneProfiles={"profileName": {"_uuid": uuid}},
+                    phoneProfiles={"profileName": {"uuid": uuid}},
                     defaultProfile=default_profile,
                     subscribeCallingSearchSpaceName=subscribe_css,
                     primaryExtension={"pattern": primary_extension},
