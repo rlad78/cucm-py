@@ -154,7 +154,7 @@ class axl(object):
 
         try:
             sql_result = self.client.executeSQLQuery(sql=query)
-            print(sql_result)
+            # print(sql_result)
         except Exception as fault:
             sql_result = None
             self.last_exception = fault
