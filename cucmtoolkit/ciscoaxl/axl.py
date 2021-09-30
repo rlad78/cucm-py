@@ -11,6 +11,7 @@ Links:
 
 from cucmtoolkit.ciscoaxl.validation import validate_ucm_server, validate_axl_auth
 from cucmtoolkit.ciscoaxl.exceptions import *
+import cucmtoolkit.ciscoaxl.configs as cfg
 import re
 import os
 import urllib3
@@ -22,8 +23,40 @@ from zeep import exceptions
 from zeep.transports import Transport
 from zeep.cache import SqliteCache
 from zeep.exceptions import Fault
+from zeep.helpers import serialize_object
+from functools import wraps
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+def faulthandler(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        r_value = func(*args, **kwargs)
+        if cfg.DISABLE_FAULT_HANDLER:
+            return r_value
+
+        if issubclass(type(r_value), Fault):
+            return None
+        else:
+            return r_value
+
+    return wrapper
+
+
+def serialize(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        r_value = func(*args, **kwargs)
+        if cfg.DISABLE_SERIALIZER:
+            return r_value
+
+        if r_value is not None:
+            return serialize_object(r_value, dict)
+        else:
+            return r_value
+
+    return wrapper
 
 
 class axl(object):
@@ -1638,6 +1671,7 @@ class axl(object):
         except Fault as e:
             return e
 
+    @faulthandler
     def get_directory_number(self, **args):
         """
         Get directory number details
