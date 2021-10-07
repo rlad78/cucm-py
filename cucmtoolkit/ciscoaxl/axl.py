@@ -9,6 +9,7 @@ Links:
  - https://developer.cisco.com/site/axl/
 """
 
+from typing import Callable
 from cucmtoolkit.ciscoaxl.validation import validate_ucm_server, validate_axl_auth
 from cucmtoolkit.ciscoaxl.exceptions import *
 import cucmtoolkit.ciscoaxl.configs as cfg
@@ -29,7 +30,7 @@ from functools import wraps
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-def faulthandler(func):
+def faulthandler(func: Callable) -> Callable:
     @wraps(func)
     def wrapper(*args, **kwargs):
         r_value = func(*args, **kwargs)
@@ -44,7 +45,7 @@ def faulthandler(func):
     return wrapper
 
 
-def serialize(func):
+def serialize(func: Callable) -> Callable:
     @wraps(func)
     def wrapper(*args, **kwargs):
         r_value = func(*args, **kwargs)
@@ -53,6 +54,21 @@ def serialize(func):
 
         if r_value is not None:
             return serialize_object(r_value, dict)
+        else:
+            return r_value
+
+    return wrapper
+
+
+def serialize_list(func: Callable) -> Callable:
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        r_value = func(*args, **kwargs)
+        if cfg.DISABLE_SERIALIZER:
+            return r_value
+
+        if type(r_value) == list:
+            return [serialize_object(element, dict) for element in r_value]
         else:
             return r_value
 
@@ -1955,6 +1971,8 @@ class axl(object):
         except Fault as e:
             return e
 
+    @serialize_list
+    @faulthandler
     def get_phones(
         self,
         query={"name": "%"},
@@ -1985,6 +2003,8 @@ class axl(object):
             a.extend(each)
         return a
 
+    @serialize
+    @faulthandler
     def get_phone(self, **args):
         """
         Get device profile parameters
