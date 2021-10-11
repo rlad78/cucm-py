@@ -9,7 +9,7 @@ Links:
  - https://developer.cisco.com/site/axl/
 """
 
-from typing import Callable, TypeVar
+from typing import Any, Callable, TypeVar, Union
 from typing_extensions import ParamSpec
 from cucmtoolkit.ciscoaxl.validation import validate_ucm_server, validate_axl_auth
 from cucmtoolkit.ciscoaxl.exceptions import *
@@ -39,7 +39,7 @@ _R = TypeVar("_R")
 
 def faulthandler(func: Callable[_P, _R]) -> Callable[_P, _R]:
     @wraps(func)
-    def wrapper(*args: _P.args, **kwargs: _P.kwargs):
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Union[Any, None]:
         r_value = func(*args, **kwargs)
         if cfg.DISABLE_FAULT_HANDLER:
             return r_value
@@ -54,7 +54,7 @@ def faulthandler(func: Callable[_P, _R]) -> Callable[_P, _R]:
 
 def serialize(func: Callable[_P, _R]) -> Callable[_P, _R]:
     @wraps(func)
-    def wrapper(*args: _P.args, **kwargs: _P.kwargs):
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> dict:
         r_value = func(*args, **kwargs)
         if cfg.DISABLE_SERIALIZER:
             return r_value
@@ -69,7 +69,7 @@ def serialize(func: Callable[_P, _R]) -> Callable[_P, _R]:
 
 def serialize_list(func: Callable[_P, _R]) -> Callable[_P, _R]:
     @wraps(func)
-    def wrapper(*args: _P.args, **kwargs: _P.kwargs):
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> list[dict]:
         r_value = func(*args, **kwargs)
         if cfg.DISABLE_SERIALIZER:
             return r_value
@@ -122,6 +122,7 @@ class axl(object):
         self.wsdl = wsdl
         self.username = username
         self.password = password
+        self.wsdl_client = axl_client
         self.wsdl = wsdl
         self.cucm = cucm
         self.cucm_port = port
@@ -162,7 +163,7 @@ class axl(object):
             "withinVideoBandwidth": "",
             "withinImmersiveKbits": "",
         },
-    ):
+    ) -> Union[list[dict], None]:
         """Returns information on all locations matching the search criteria.
 
         Parameters
@@ -184,12 +185,23 @@ class axl(object):
         except Fault as e:
             return e
 
-    def run_sql_query(self, query):
+    def run_sql_query(self, query: str) -> dict:
+        """Legacy function. Use sql_query() instead.
+
+        Parameters
+        ----------
+        query : str
+            SQL query to be run.
+
+        Returns
+        -------
+        [type]
+            [description]
+        """
         result = {"num_rows": 0, "query": query}
 
         try:
-            sql_result = self.client.executeSQLQuery(sql=query)
-            # print(sql_result)
+            sql_result = self.sql_query(query)
         except Exception as fault:
             sql_result = None
             self.last_exception = fault
@@ -198,18 +210,17 @@ class axl(object):
         result_rows = []
 
         if sql_result is not None:
-            if sql_result["return"] is not None:
-                for row in sql_result["return"]["row"]:
-                    result_rows.append({})
-                    for column in row:
-                        result_rows[num_rows][column.tag] = column.text
-                    num_rows += 1
+            for row in sql_result["row"]:
+                result_rows.append({})
+                for column in row:
+                    result_rows[num_rows][column.tag] = column.text
+                num_rows += 1
 
         result["num_rows"] = num_rows
         if num_rows > 0:
             result["rows"] = result_rows
 
-        return result
+        return {"num_rows": len}
 
     def sql_query(self, query):
         """
@@ -1994,7 +2005,11 @@ class axl(object):
     @faulthandler
     def get_phones(
         self,
-        query={"name": "%"},
+        name="%",
+        description="%",
+        css="%",
+        device_pool="%",
+        security_profile="%",
         tagfilter={
             "name": "",
             "product": "",
@@ -2003,9 +2018,17 @@ class axl(object):
             "locationName": "",
             "callingSearchSpaceName": "",
         },
-    ):
+    ) -> list[dict]:
         skip = 0
         a = []
+        query = {
+            "name": name,
+            "descrption": description,
+            "callingSearchSpaceName": css,
+            "devicePoolName": device_pool,
+            "securityProfileName": security_profile,
+        }
+        tagfilter
 
         def inner(skip):
             while True:
