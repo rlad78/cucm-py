@@ -9,7 +9,8 @@ Links:
  - https://developer.cisco.com/site/axl/
 """
 
-from typing import Callable
+from typing import Callable, TypeVar
+from typing_extensions import ParamSpec
 from cucmtoolkit.ciscoaxl.validation import validate_ucm_server, validate_axl_auth
 from cucmtoolkit.ciscoaxl.exceptions import *
 import cucmtoolkit.ciscoaxl.configs as cfg
@@ -30,9 +31,13 @@ from functools import wraps
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-def faulthandler(func: Callable) -> Callable:
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def faulthandler(func: Callable[_P, _R]) -> Callable[_P, _R]:
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs):
         r_value = func(*args, **kwargs)
         if cfg.DISABLE_FAULT_HANDLER:
             return r_value
@@ -42,12 +47,14 @@ def faulthandler(func: Callable) -> Callable:
         else:
             return r_value
 
+    # wrapper.__name__ = func.__name__
+    # wrapper.__doc__ = func.__doc__
     return wrapper
 
 
-def serialize(func: Callable) -> Callable:
+def serialize(func: Callable[_P, _R]) -> Callable[_P, _R]:
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs):
         r_value = func(*args, **kwargs)
         if cfg.DISABLE_SERIALIZER:
             return r_value
@@ -57,12 +64,14 @@ def serialize(func: Callable) -> Callable:
         else:
             return dict()
 
+    # wrapper.__name__ = func.__name__
+    # wrapper.__doc__ = func.__doc__
     return wrapper
 
 
-def serialize_list(func: Callable) -> Callable:
+def serialize_list(func: Callable[_P, _R]) -> Callable[_P, _R]:
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs):
         r_value = func(*args, **kwargs)
         if cfg.DISABLE_SERIALIZER:
             return r_value
@@ -72,6 +81,8 @@ def serialize_list(func: Callable) -> Callable:
         else:
             return r_value
 
+    # wrapper.__name__ = func.__name__
+    # wrapper.__doc__ = func.__doc__
     return wrapper
 
 
@@ -144,6 +155,8 @@ class axl(object):
             f"https://{cucm}:{port}/axl/",
         )
 
+    @serialize_list
+    @faulthandler
     def get_locations(
         self,
         name="%",
