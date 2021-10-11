@@ -64,3 +64,7 @@ class AXLException(UCMException):
             return "An unknown issue occured when trying to connect to the AXL API."
         else:
             return f"An error occured when trying to connect to the AXL API: {self.err}"
+
+
+class WSDLException(Exception):
+    pass
