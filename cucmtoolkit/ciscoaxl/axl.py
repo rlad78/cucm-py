@@ -31,6 +31,8 @@ from functools import wraps
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+# For use with decorators listed below. Helps supply correct params in Pylance, Intellisense, etc.
+# Reference: https://github.com/microsoft/pyright/issues/774#issuecomment-755769085
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
 
