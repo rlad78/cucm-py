@@ -47,8 +47,6 @@ def faulthandler(func: Callable[_P, _R]) -> Callable[_P, _R]:
         else:
             return r_value
 
-    # wrapper.__name__ = func.__name__
-    # wrapper.__doc__ = func.__doc__
     return wrapper
 
 
@@ -64,8 +62,6 @@ def serialize(func: Callable[_P, _R]) -> Callable[_P, _R]:
         else:
             return dict()
 
-    # wrapper.__name__ = func.__name__
-    # wrapper.__doc__ = func.__doc__
     return wrapper
 
 
@@ -81,8 +77,6 @@ def serialize_list(func: Callable[_P, _R]) -> Callable[_P, _R]:
         else:
             return r_value
 
-    # wrapper.__name__ = func.__name__
-    # wrapper.__doc__ = func.__doc__
     return wrapper
 
 
