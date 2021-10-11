@@ -55,7 +55,7 @@ def serialize(func: Callable) -> Callable:
         if r_value is not None:
             return serialize_object(r_value, dict)
         else:
-            return r_value
+            return dict()
 
     return wrapper
 
@@ -146,6 +146,7 @@ class axl(object):
 
     def get_locations(
         self,
+        name="%",
         tagfilter={
             "name": "",
             "withinAudioBandwidth": "",
@@ -153,10 +154,19 @@ class axl(object):
             "withinImmersiveKbits": "",
         },
     ):
-        """
-        Get location details
-        :param mini: return a list of tuples of location details
-        :return: A list of dictionary's
+        """Returns information on all locations matching the search criteria.
+
+        Parameters
+        ----------
+        name : str, optional
+            Search criteria to match against location names. By default "%", which will match all locations. Uses SQL wildcards.
+        tagfilter : dict, optional
+            The categories of wanted information. Categories that are not listed will have a None value. Must be entered as a dict using the following format: {categoryName: ""}.
+
+        Returns
+        -------
+        list[dict], None
+            [description]
         """
         try:
             return self.client.listLocation({"name": "%"}, returnedTags=tagfilter,)[
