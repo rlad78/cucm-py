@@ -173,10 +173,10 @@ class axl(object):
         Returns
         -------
         list[dict], None
-            [description]
+            Returns either list of results, or None if an unknown fault occured
         """
         try:
-            return self.client.listLocation({"name": "%"}, returnedTags=tagfilter,)[
+            return self.client.listLocation({"name": name}, returnedTags=tagfilter,)[
                 "return"
             ]["location"]
         except Fault as e:
