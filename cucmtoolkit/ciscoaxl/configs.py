@@ -6,15 +6,15 @@ USERNAME_MAGIC_KEY: str = "73q0eWFaIE2JJw8FMNeX"
 URL_MAGIC_KEY: str = "8Cu16DGzNvunSsDNOTrO"
 DUMMY_KEY: str = "xlGoVnofkKjNSgnwA9Z7"
 
-DISABLE_FAULT_HANDLER = False
 DISABLE_SERIALIZER = False
-
-
-def turn_off_fault_handler() -> None:
-    global DISABLE_FAULT_HANDLER
-    DISABLE_FAULT_HANDLER = True
+DISABLE_CHECK_TAGS = False
 
 
 def turn_off_serializer() -> None:
     global DISABLE_SERIALIZER
     DISABLE_SERIALIZER = True
+
+
+def turn_off_tags_checker() -> None:
+    global DISABLE_CHECK_TAGS
+    DISABLE_CHECK_TAGS = True
