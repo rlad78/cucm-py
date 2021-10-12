@@ -21,7 +21,6 @@ from pathlib import Path
 from requests import Session
 from requests.auth import HTTPBasicAuth
 from zeep import Client, Settings
-from zeep import exceptions
 from zeep.transports import Transport
 from zeep.cache import SqliteCache
 from zeep.exceptions import Fault
