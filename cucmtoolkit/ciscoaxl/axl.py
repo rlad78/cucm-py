@@ -69,7 +69,7 @@ def serialize(func: Callable[_P, _R]) -> Callable[_P, _R]:
 
 def serialize_list(func: Callable[_P, _R]) -> Callable[_P, _R]:
     @wraps(func)
-    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> list[dict]:
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Union[list[dict], Any]:
         r_value = func(*args, **kwargs)
         if cfg.DISABLE_SERIALIZER:
             return r_value
@@ -195,8 +195,8 @@ class axl(object):
 
         Returns
         -------
-        [type]
-            [description]
+        dict
+            Contains 'num_rows', 'query', and 'rows' only if the query returned anything. Otherwise, only returns 'num_rows' = 0 and 'query' = query.
         """
         result = {"num_rows": 0, "query": query}
 
@@ -220,7 +220,7 @@ class axl(object):
         if num_rows > 0:
             result["rows"] = result_rows
 
-        return {"num_rows": len}
+        return result
 
     def sql_query(self, query):
         """
