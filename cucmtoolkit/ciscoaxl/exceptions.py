@@ -1,3 +1,6 @@
+from typing import Callable
+
+
 class _ServerError(Exception):
     def __init__(self, server: str, *args: object) -> None:
         self.server = server
@@ -67,4 +70,21 @@ class AXLException(UCMException):
 
 
 class WSDLException(Exception):
+    pass
+
+
+class TagNotValid(Exception):
+    def __init__(
+        self, tag: str, func: Callable, valid_tags: list[str], *args: object
+    ) -> None:
+        self.tag = tag
+        self.func = func
+        self.valid_tags = valid_tags
+        super().__init__(*args)
+
+    def __str__(self) -> str:
+        return f"{self.tag} is not a valid return tag for {self.func.__name__}. Valid tags are:\n{self.valid_tags}"
+
+
+class DumbProgrammerException(Exception):
     pass
