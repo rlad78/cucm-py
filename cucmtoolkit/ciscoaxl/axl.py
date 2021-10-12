@@ -13,6 +13,7 @@ from typing import Any, Callable, TypeVar, Union
 from typing_extensions import ParamSpec
 from cucmtoolkit.ciscoaxl.validation import validate_ucm_server, validate_axl_auth
 from cucmtoolkit.ciscoaxl.exceptions import *
+from cucmtoolkit.ciscoaxl.wsdl import get_return_tags
 import cucmtoolkit.ciscoaxl.configs as cfg
 import re
 import os
@@ -32,43 +33,36 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # For use with decorators listed below. Helps supply correct params in Pylance, Intellisense, etc.
 # Reference: https://github.com/microsoft/pyright/issues/774#issuecomment-755769085
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
+_sP = ParamSpec("_sP")
+_sR = TypeVar("_sR")
+
+_slP = ParamSpec("_slP")
+_slR = TypeVar("_slR")
+
+_ctP = ParamSpec("_ctP")
+_ctR = TypeVar("_ctR")
 
 
-def faulthandler(func: Callable[_P, _R]) -> Callable[_P, _R]:
+def serialize(func: Callable[_sP, _sR]) -> Callable[_sP, _sR]:
     @wraps(func)
-    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Union[Any, None]:
-        r_value = func(*args, **kwargs)
-        if cfg.DISABLE_FAULT_HANDLER:
-            return r_value
-
-        if issubclass(type(r_value), Fault):
-            return None
-        else:
-            return r_value
-
-    return wrapper
-
-
-def serialize(func: Callable[_P, _R]) -> Callable[_P, _R]:
-    @wraps(func)
-    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> dict:
+    def wrapper(*args: _sP.args, **kwargs: _sP.kwargs) -> _sR:
         r_value = func(*args, **kwargs)
         if cfg.DISABLE_SERIALIZER:
             return r_value
 
-        if r_value is not None:
-            return serialize_object(r_value, dict)
-        else:
+        if r_value is None:
             return dict()
+        elif issubclass(type(r_value), Exception):
+            return r_value
+        else:
+            return serialize_object(r_value, dict)
 
     return wrapper
 
 
-def serialize_list(func: Callable[_P, _R]) -> Callable[_P, _R]:
+def serialize_list(func: Callable[_slP, _slR]) -> Callable[_slP, _slR]:
     @wraps(func)
-    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Union[list[dict], Any]:
+    def wrapper(*args: _slP.args, **kwargs: _slP.kwargs) -> _slR:
         r_value = func(*args, **kwargs)
         if cfg.DISABLE_SERIALIZER:
             return r_value
@@ -79,6 +73,47 @@ def serialize_list(func: Callable[_P, _R]) -> Callable[_P, _R]:
             return r_value
 
     return wrapper
+
+
+def check_tags(element_name: str):
+    def check_tags_decorator(func: Callable[_ctP, _ctR]) -> Callable[_ctP, _ctR]:
+        @wraps(func)
+        def wrapper(*args: _ctP.args, **kwargs: _ctP.kwargs) -> _ctR:
+            if cfg.DISABLE_CHECK_TAGS:
+                return func(*args, **kwargs)
+
+            if type(args[0]) != axl:
+                raise DumbProgrammerException(
+                    f"Forgot to include self in {func.__name__}!!!!"
+                )
+            elif "return_tags" not in kwargs:
+                args_str = ", ".join(args)
+                kwargs_str = ", ".join(
+                    f"{name}={value}" for name, value in kwargs.items()
+                )
+                p_str = (
+                    "'return_tags' is not a keyword argument in "
+                    + f"{func.__name__}({args_str}{', ' if all((args_str, kwargs_str)) else ''}{kwargs_str})."
+                    + "\nPlease include 'return_tags=[..., ...]' in your function call in order for the tags to be checked, "
+                    + "or import turn_off_tags_checker() from cucmtoolkit.ciscoaxl.configs and run it at the start of your script.\n"
+                )
+                print(p_str)
+                return func(*args, **kwargs)
+            elif not element_name:
+                raise DumbProgrammerException(
+                    f"Forgot to provide element_name in check_tags decorator on {func.__name__}!!!"
+                )
+            else:
+                legal_tags: list[str] = get_return_tags(args[0].zeep, element_name)
+                for tag in kwargs["return_tags"]:
+                    if tag not in legal_tags:
+                        raise TagNotValid(tag, func, legal_tags)
+                # all tags good
+                return func(*args, **kwargs)
+
+        return wrapper
+
+    return check_tags_decorator
 
 
 class axl(object):
@@ -121,7 +156,7 @@ class axl(object):
         self.wsdl = wsdl
         self.username = username
         self.password = password
-        self.wsdl_client = axl_client
+        self.zeep = axl_client
         self.wsdl = wsdl
         self.cucm = cucm
         self.cucm_port = port
@@ -151,36 +186,37 @@ class axl(object):
             f"https://{cucm}:{port}/axl/",
         )
 
-    @serialize_list
-    @faulthandler
+    @serialize_list()
+    @check_tags(element_name="listLocation")()
     def get_locations(
         self,
         name="%",
-        tagfilter={
-            "name": "",
-            "withinAudioBandwidth": "",
-            "withinVideoBandwidth": "",
-            "withinImmersiveKbits": "",
-        },
+        return_tags=[
+            "name",
+            "withinAudioBandwidth",
+            "withinVideoBandwidth",
+            "withinImmersiveKbits",
+        ],
     ) -> Union[list[dict], None]:
-        """Returns information on all locations matching the search criteria.
+        """Get all locations created in UCM
 
         Parameters
         ----------
         name : str, optional
-            Search criteria to match against location names. By default "%", which will match all locations. Uses SQL wildcards.
-        tagfilter : dict, optional
-            The categories of wanted information. Categories that are not listed will have a None value. Must be entered as a dict using the following format: {categoryName: ""}.
+            Name to search against all locations, by default "%", the SQL "any" wildcard.
+        return_tags : list, optional
+            The categories to be returned, by default [ "name", "withinAudioBandwidth", "withinVideoBandwidth", "withinImmersiveKbits", ]. All other categories not provided will have a None value.
 
         Returns
         -------
-        list[dict], None
-            Returns either list of results, or None if an unknown fault occured
+        list[dict], Fault
+            A list of all location info, or a Fault exception if an issue occured.
         """
         try:
-            return self.client.listLocation({"name": name}, returnedTags=tagfilter,)[
-                "return"
-            ]["location"]
+            return self.client.listLocation(
+                {"name": name},
+                returnedTags={t: "" for t in return_tags},
+            )["return"]["location"]
         except Fault as e:
             return e
 
@@ -221,28 +257,50 @@ class axl(object):
 
         return result
 
-    def sql_query(self, query):
-        """
-        Execute SQL query
-        :param query: SQL Query to execute
-        :return: result dictionary
+    def sql_query(self, query: str) -> Union[list[list[str]], Fault]:
+        """Runs an SQL query on the UCM DB and returns the response.
+
+        Args:
+            query (str): The SQL query to run. Do not include "run sql" in the query.
+
+        Returns:
+            list[list[str]]: Nested list of results, with the "top" list being the category header, and the following lists containing the query's returned rows.
+            Fault: Exception returned from AXL if an issue occured when running the SQL query.
         """
         try:
-            return self.client.executeSQLQuery(query)["return"]
+            recv = self.client.executeSQLQuery(query)["return"]
+            data = recv["row"]
         except Fault as e:
             return e
+        except (KeyError, TypeError):  # no rows returned
+            return [[]]
+        if not data:  # data is empty
+            return [[]]
 
-    def sql_update(self, query):
-        """
-        Execute SQL update
-        :param query: SQL Update to execute
-        :return: result dictionary
+        # Zeep returns nested list of Element objs
+        # Need to extract text from all Element objs
+        parsed_data: list[list[str]] = []
+        parsed_data.append([e.tag for e in data[0]])  # headers
+        for row in data:
+            parsed_data.append([e.text for e in row])
+
+        return parsed_data
+
+    def sql_update(self, query: str) -> dict:
+        """Run an update on the UCM SQL DB.
+
+        Args:
+            query (str): SQL query to be run.
+
+        Returns:
+            dict: AXL status return code.
         """
         try:
             return self.client.executeSQLUpdate(query)["return"]
         except Fault as e:
             return e
 
+    @serialize_list()
     def get_ldap_dir(
         self,
         tagfilter={
@@ -263,6 +321,7 @@ class axl(object):
         except Fault as e:
             return e
 
+    @serialize()
     def do_ldap_sync(self, uuid):
         """
         Do LDAP Sync
@@ -1716,7 +1775,6 @@ class axl(object):
         except Fault as e:
             return e
 
-    @faulthandler
     def get_directory_number(self, **args):
         """
         Get directory number details
@@ -2000,8 +2058,7 @@ class axl(object):
         except Fault as e:
             return e
 
-    @serialize_list
-    @faulthandler
+    @serialize_list()
     def get_phones(
         self,
         name="%",
@@ -2044,8 +2101,7 @@ class axl(object):
             a.extend(each)
         return a
 
-    @serialize
-    @faulthandler
+    @serialize()
     def get_phone(self, **args):
         """
         Get device profile parameters
