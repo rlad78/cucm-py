@@ -83,7 +83,7 @@ class TagNotValid(Exception):
         super().__init__(*args)
 
     def __str__(self) -> str:
-        return f"{self.tag} is not a valid return tag for {self.func.__name__}. Valid tags are:\n{self.valid_tags}"
+        return f"'{self.tag}; is not a valid return tag for {self.func.__name__}(). Valid tags are:\n{self.valid_tags}"
 
 
 class DumbProgrammerException(Exception):

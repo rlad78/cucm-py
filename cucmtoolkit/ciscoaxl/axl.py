@@ -20,7 +20,6 @@ from cucmtoolkit.ciscoaxl.exceptions import *
 from cucmtoolkit.ciscoaxl.wsdl import get_return_tags
 import cucmtoolkit.ciscoaxl.configs as cfg
 import re
-import os
 import urllib3
 from pathlib import Path
 from requests import Session
@@ -31,6 +30,7 @@ from zeep.cache import SqliteCache
 from zeep.exceptions import Fault
 from zeep.helpers import serialize_object
 from functools import wraps
+import inspect
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -91,21 +91,23 @@ def check_tags(element_name: str):
                     f"Forgot to include self in {func.__name__}!!!!"
                 )
             elif "return_tags" not in kwargs:
-                args_str = ", ".join(args)
-                kwargs_str = ", ".join(
-                    f"{name}={value}" for name, value in kwargs.items()
-                )
-                p_str = (
-                    "'return_tags' is not a keyword argument in "
-                    + f"{func.__name__}({args_str}{', ' if all((args_str, kwargs_str)) else ''}{kwargs_str})."
-                    + "\nPlease include 'return_tags=[..., ...]' in your function call in order for the tags to be checked, "
-                    + "or import turn_off_tags_checker() from cucmtoolkit.ciscoaxl.configs and run it at the start of your script.\n"
-                )
-                print(p_str)
+                # tags are default, continue
                 return func(*args, **kwargs)
             elif not element_name:
                 raise DumbProgrammerException(
                     f"Forgot to provide element_name in check_tags decorator on {func.__name__}!!!"
+                )
+            elif (
+                tags_param := inspect.signature(func).parameters.get(
+                    "return_tags", None
+                )
+            ) is None:
+                raise DumbProgrammerException(
+                    f"No 'return_tags' param on {func.__name__}()"
+                )
+            elif tags_param.kind != tags_param.KEYWORD_ONLY:
+                raise DumbProgrammerException(
+                    f"Forgot to add '*' before return_tags on {func.__name__}()"
                 )
             else:
                 legal_tags: list[str] = get_return_tags(args[0].zeep, element_name)
@@ -182,15 +184,6 @@ class axl(object):
         self.cucm_version = cucm_version
 
         try:
-            ucm_validation = validate_ucm_server(cucm)
-        except (UCMInvalidError, UCMConnectionFailure, UCMNotFoundError) as err:
-            raise UCMException(err)
-        if not ucm_validation:
-            raise UCMException(
-                f"Could not connect to {cucm}, please check your server."
-            )
-
-        try:
             axl_validation = validate_axl_auth(cucm, username, password, port)
         except (AXLInvalidCredentials, AXLConnectionFailure, AXLNotFoundError) as err:
             raise AXLException(err)
@@ -205,11 +198,12 @@ class axl(object):
             f"https://{cucm}:{port}/axl/",
         )
 
-    @serialize_list()
-    @check_tags(element_name="listLocation")()
+    @serialize_list
+    @check_tags(element_name="listLocation")
     def get_locations(
         self,
         name="%",
+        *,
         return_tags=[
             "name",
             "withinAudioBandwidth",
@@ -319,7 +313,7 @@ class axl(object):
         except Fault as e:
             return e
 
-    @serialize_list()
+    @serialize_list
     def get_ldap_dir(
         self,
         tagfilter={
@@ -340,7 +334,7 @@ class axl(object):
         except Fault as e:
             return e
 
-    @serialize()
+    @serialize
     def do_ldap_sync(self, uuid):
         """
         Do LDAP Sync
@@ -2077,7 +2071,7 @@ class axl(object):
         except Fault as e:
             return e
 
-    @serialize_list()
+    @serialize_list
     def get_phones(
         self,
         name="%",
@@ -2120,7 +2114,7 @@ class axl(object):
             a.extend(each)
         return a
 
-    @serialize()
+    @serialize
     def get_phone(self, **args):
         """
         Get device profile parameters
