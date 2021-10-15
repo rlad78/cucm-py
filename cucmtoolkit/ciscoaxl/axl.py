@@ -11,7 +11,11 @@ Links:
 
 from typing import Any, Callable, TypeVar, Union
 from typing_extensions import ParamSpec
-from cucmtoolkit.ciscoaxl.validation import validate_ucm_server, validate_axl_auth
+from cucmtoolkit.ciscoaxl.validation import (
+    validate_ucm_server,
+    validate_axl_auth,
+    get_ucm_version,
+)
 from cucmtoolkit.ciscoaxl.exceptions import *
 from cucmtoolkit.ciscoaxl.wsdl import get_return_tags
 import cucmtoolkit.ciscoaxl.configs as cfg
@@ -123,27 +127,42 @@ class axl(object):
     Python 3.6
     """
 
-    def __init__(self, username, password, cucm, cucm_version, port="8443"):
+    def __init__(
+        self, username: str, password: str, cucm: str, port="8443", version=""
+    ):
         """Main object for interfacing with the AXL API
 
-        Args:
-            username (str): Username for admin account with AXL access
-            password (str): Password for admin account
-            cucm (str): Server URL, without leading http/https
-            cucm_version (str): 11.0, 11.5, 12.0, etc.
-            port (str, optional): Port that points to your UCM instance
-                in relevance to the CUCM URL. Defaults to "8443".
+        Parameters
+        ----------
+        username : str
+            Admin with AXL privileges
+        password : str
+            Password for admin user
+        cucm : str
+            Base URL where a UCM server is located
+        port : str, optional
+            The port at which UCM services can be accessed, by default "8443"
+        version : str, optional
+            Only required if getting UDS exceptions, by default "". Use a two-digit version, like "11.5" or "14.0"
 
-        Raises:
-            UCMException: when there is an issue connecting to the UCM server
-            AXLException: when there is an issue connecting to the AXL API
+        Raises
+        ------
+        UCMException
+            if an issue regarding UCM is found
+        AXLException
+            if an issue regarding the AXL API is found
         """
+        try:
+            ucm_validation = validate_ucm_server(cucm)
+        except (UCMInvalidError, UCMConnectionFailure, UCMNotFoundError) as err:
+            raise UCMException(err)
+        if not ucm_validation:
+            raise UCMException(
+                f"Could not connect to {cucm}, please check your server."
+            )
 
-        cwd = os.path.dirname(os.path.abspath(__file__))
-        if os.name == "posix":
-            wsdl = Path(f"{cwd}/schema/{cucm_version}/AXLAPI.wsdl").as_uri()
-        else:
-            wsdl = str(Path(f"{cwd}/schema/{cucm_version}/AXLAPI.wsdl").absolute())
+        cucm_version = get_ucm_version(cucm, port)
+        wsdl = str(cfg.ROOT_DIR / "schema" / cucm_version / "AXLAPI.wsdl")
         session = Session()
         session.verify = False
         session.auth = HTTPBasicAuth(username, password)

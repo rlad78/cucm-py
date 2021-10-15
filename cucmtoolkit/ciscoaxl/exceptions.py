@@ -88,3 +88,31 @@ class TagNotValid(Exception):
 
 class DumbProgrammerException(Exception):
     pass
+
+
+class UDSConnectionError(_ServerError):
+    def __str__(self) -> str:
+        return f"Could not connect to CUCM UDS service at {self.server}"
+
+
+class UDSParseError(Exception):
+    def __init__(self, url: str, wanted: str, xml_text: str, *args: object) -> None:
+        if "cucm-uds" in url:
+            self.access_point = "cucm-uds" + url.split("cucm-uds")[-1]
+        else:
+            raise DumbProgrammerException(f"Malformed cucm-uds URI: {url}")
+        self.wanted = wanted
+        self.xml = xml_text
+        super().__init__(*args)
+
+    def __str__(self) -> str:
+        return f"Could not find '{self.wanted}' at {self.access_point}"
+
+
+class UCMVersionError(_ServerError):
+    def __init__(self, server: str, version: str, *args: object) -> None:
+        self.version = version
+        super().__init__(server, *args)
+
+    def __str__(self) -> str:
+        return f"The UCM server at {self.server} has an unsupported version '{self.version}'"

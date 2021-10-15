@@ -2,6 +2,8 @@ from pathlib import Path
 from zeep.exceptions import Fault
 
 ROOT_DIR: Path = Path(__file__).parent
+CUCM_LATEST_VERSION: str = "14.0"
+
 USERNAME_MAGIC_KEY: str = "73q0eWFaIE2JJw8FMNeX"
 URL_MAGIC_KEY: str = "8Cu16DGzNvunSsDNOTrO"
 DUMMY_KEY: str = "xlGoVnofkKjNSgnwA9Z7"

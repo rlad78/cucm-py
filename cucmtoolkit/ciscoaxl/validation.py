@@ -1,5 +1,8 @@
+from typing import Tuple
 from cucmtoolkit.ciscoaxl.exceptions import *
+from cucmtoolkit.ciscoaxl.configs import ROOT_DIR, CUCM_LATEST_VERSION
 import requests
+import xml.etree.ElementTree as ET
 from requests.adapters import (
     HTTPAdapter,
     ConnectTimeout,
@@ -12,6 +15,7 @@ from urllib3.util.retry import Retry
 import tldextract
 import validators
 from bs4 import BeautifulSoup
+from pathlib import Path
 
 
 def _session() -> requests.Session:
@@ -35,7 +39,7 @@ def _session_auth(username: str, password: str) -> requests.Session:
     return s
 
 
-def _generate_proper_url(url: str, port=0) -> str:
+def _generate_proper_url(url: str, port="0") -> str:
     if not url.startswith("http://") and not url.startswith("https://"):
         url = "https://" + url
 
@@ -45,7 +49,7 @@ def _generate_proper_url(url: str, port=0) -> str:
     urlpath = url_parts.path
 
     # subdomain, domain, suffix = tldextract(url)
-    if port == 0:
+    if port == "0":
         return f"{scheme}://{netloc}{urlpath}"
     else:
         return f"{scheme}://{netloc}:{port}{urlpath}"
@@ -162,3 +166,59 @@ def validate_axl_auth(ucm: str, username: str, password: str, port="8443") -> bo
         raise AXLConnectionFailure(fullurl)
     else:
         return False
+
+
+def _get_schema_versions() -> list[str]:
+    schema_dir = ROOT_DIR / "schema"
+    if not schema_dir.is_dir():
+        raise DumbProgrammerException("Cannot find schema dir")
+
+    return [p.name for p in schema_dir.glob("*")]
+
+
+def get_ucm_version(ucm_url: str, port="8443") -> str:
+    """Finds the UCM version of the server.
+
+    Parameters
+    ----------
+    ucm_url : str
+        The base URL of the UCM server.
+    port : str, optional
+        The port that UCM services can be accessed at, by default "8443"
+
+    Returns
+    -------
+    str
+        The version number found (first two digits only)
+
+    Raises
+    ------
+    UDSConnectionError
+        if connection to the CUCM UDS service fails
+    UDSParseError
+        if the version cannot be parsed from the returned XML
+    UCMVersionError
+        if the version found is not supported by cucmtoolkit
+    """
+    url = _generate_proper_url(ucm_url, port)
+    if url.endswith("/"):
+        url = url[:-1]
+    url += "/cucm-uds/version"
+
+    recv = requests.get(url)
+    try:
+        tree = ET.fromstring(recv.text)
+    except (TypeError, ET.ParseError):
+        raise UDSConnectionError(url)
+
+    raw_version = tree.get("version", None)
+    if raw_version is None:
+        raise UDSParseError(url, "version", recv.text)
+
+    concise_version = ".".join(raw_version.split(".")[:2])
+    if concise_version in _get_schema_versions():
+        return concise_version
+    elif concise_version == CUCM_LATEST_VERSION:
+        return "current"
+    else:
+        raise UCMVersionError(ucm_url, concise_version)
