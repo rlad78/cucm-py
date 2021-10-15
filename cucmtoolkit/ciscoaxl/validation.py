@@ -25,7 +25,7 @@ def _session() -> requests.Session:
         read=3,
         connect=3,
         status=3,
-        other=3,
+        # other=3,
         total=5,
         backoff_factor=0.1,
     )
