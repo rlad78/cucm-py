@@ -37,19 +37,21 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # For use with decorators listed below. Helps supply correct params in Pylance, Intellisense, etc.
 # Reference: https://github.com/microsoft/pyright/issues/774#issuecomment-755769085
-_sP = ParamSpec("_sP")
-_sR = TypeVar("_sR")
+# _sP = ParamSpec("_sP")
+# _sR = TypeVar("_sR")
 
-_slP = ParamSpec("_slP")
-_slR = TypeVar("_slR")
+# _slP = ParamSpec("_slP")
+# _slR = TypeVar("_slR")
 
-_ctP = ParamSpec("_ctP")
-_ctR = TypeVar("_ctR")
+# _ctP = ParamSpec("_ctP")
+# _ctR = TypeVar("_ctR")
+
+TCallable = TypeVar("TCallable", bound=Callable)
 
 
-def serialize(func: Callable[_sP, _sR]) -> Callable[_sP, _sR]:
+def serialize(func: TCallable) -> TCallable:
     @wraps(func)
-    def wrapper(*args: _sP.args, **kwargs: _sP.kwargs) -> _sR:
+    def wrapper(*args, **kwargs):
         r_value = func(*args, **kwargs)
         if cfg.DISABLE_SERIALIZER:
             return r_value
@@ -64,9 +66,9 @@ def serialize(func: Callable[_sP, _sR]) -> Callable[_sP, _sR]:
     return wrapper
 
 
-def serialize_list(func: Callable[_slP, _slR]) -> Callable[_slP, _slR]:
+def serialize_list(func: TCallable) -> TCallable:
     @wraps(func)
-    def wrapper(*args: _slP.args, **kwargs: _slP.kwargs) -> _slR:
+    def wrapper(*args, **kwargs):
         r_value = func(*args, **kwargs)
         if cfg.DISABLE_SERIALIZER:
             return r_value
@@ -80,9 +82,9 @@ def serialize_list(func: Callable[_slP, _slR]) -> Callable[_slP, _slR]:
 
 
 def check_tags(element_name: str):
-    def check_tags_decorator(func: Callable[_ctP, _ctR]) -> Callable[_ctP, _ctR]:
+    def check_tags_decorator(func: TCallable) -> TCallable:
         @wraps(func)
-        def wrapper(*args: _ctP.args, **kwargs: _ctP.kwargs) -> _ctR:
+        def wrapper(*args, **kwargs):
             if cfg.DISABLE_CHECK_TAGS:
                 return func(*args, **kwargs)
 
