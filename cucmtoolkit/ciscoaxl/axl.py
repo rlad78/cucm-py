@@ -457,6 +457,7 @@ class axl(object):
             except Fault as e:
                 return e
 
+    # ? can't risk testing this
     def reset_sip_trunk(self, name="", uuid=""):
         """
         Reset SIP Trunk
@@ -475,17 +476,38 @@ class axl(object):
             except Fault as e:
                 return e
 
-    def get_location(self, **args):
+    @serialize
+    def get_location(self, name="", uuid="") -> Union[dict, Fault, None]:
+        """Finds the requested location and returns data on that location.
+
+        Parameters
+        ----------
+        name : str, optional
+            Name of the location. If uuid is also provided, this value will be ignored.
+        uuid : str, optional
+            The uuid of the location. If provided, the name value will be ignored.
+
+        Returns
+        -------
+        dict
+            The information on the requested location.
+        Fault
+            The error returned from AXL, if one occurs.
+        None
+            If neither name nor uuid are supplied as parameters (no action taken).
         """
-        Get device pool parameters
-        :param name: location name
-        :param uuid: location uuid
-        :return: result dictionary
-        """
-        try:
-            return self.client.getLocation(**args)
-        except Fault as e:
-            return e
+        if name != "" and uuid == "":
+            try:
+                return self.client.getLocation(name=name)
+            except Fault as e:
+                return e
+        elif uuid != "":
+            try:
+                return self.client.getLocation(uuid=uuid)
+            except Fault as e:
+                return e
+        else:
+            return None
 
     def add_location(
         self,
