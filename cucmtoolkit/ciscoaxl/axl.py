@@ -426,15 +426,16 @@ class axl(object):
         except Fault as e:
             return e
 
+    @serialize
     def do_device_reset(self, name="", uuid="") -> Union[dict, Fault, None]:
         """Sends a device reset to the requested phone. Same as pressing the "Reset" button on a phone in the UCM web interface.
 
         Parameters
         ----------
         name : str, optional
-            The device name. Do not provide the uuid if you've already provided name.
+            The device name. If uuid is also provided, this value will be ignored.
         uuid : str, optional
-            The uuid of the device. Do not provide the device name if you've already provided the uuid.
+            The uuid of the device. If provided, the name value will be ignored.
 
         Returns
         -------
@@ -443,14 +444,14 @@ class axl(object):
         Fault
             The error returned from AXL, if one occurs.
         None
-            If both/neither name and uuid are supplied as parameters.
+            If neither name nor uuid are supplied as parameters (no action taken).
         """
         if name != "" and uuid == "":
             try:
                 return self.client.doDeviceReset(deviceName=name, isHardReset=True)
             except Fault as e:
                 return e
-        elif name == "" and uuid != "":
+        elif uuid != "":
             try:
                 return self.client.doDeviceReset(uuid=uuid, isHardReset=True)
             except Fault as e:
