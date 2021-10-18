@@ -509,9 +509,10 @@ class axl(object):
         else:
             return None
 
+    # ! I'm definitely gonna need help with this one...
     def add_location(
         self,
-        name,
+        name: str,
         kbits=512,
         video_kbits=-1,
         within_audio_bw=512,
@@ -572,17 +573,37 @@ class axl(object):
             except Fault as e:
                 return e
 
-    def delete_location(self, **args):
+    def delete_location(self, name="", uuid=""):
+        """Deletes the requested location.
+
+        Parameters
+        ----------
+        name : str, optional
+            Name of the location. If uuid is also provided, this value will be ignored.
+        uuid : str, optional
+            The uuid of the location. If provided, the name value will be ignored.
+
+        Returns
+        -------
+        dict
+            The completion information from AXL.
+        Fault
+            The error returned from AXL, if one occurs.
+        None
+            If neither name nor uuid are supplied as parameters (no action taken).
         """
-        Delete a location
-        :param name: The name of the location to delete
-        :param uuid: The uuid of the location to delete
-        :return: result dictionary
-        """
-        try:
-            return self.client.removeLocation(**args)
-        except Fault as e:
-            return e
+        if name != "" and uuid == "":
+            try:
+                return self.client.removeLocation(name=name)
+            except Fault as e:
+                return e
+        elif uuid != "":
+            try:
+                return self.client.removeLocation(uuid=uuid)
+            except Fault as e:
+                return e
+        else:
+            return None
 
     def update_location(self, **args):
         """
