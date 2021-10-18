@@ -316,22 +316,32 @@ class axl(object):
             return e
 
     @serialize_list
+    @check_tags("listLdapDirectory")
     def get_ldap_dir(
         self,
-        tagfilter={
-            "name": "",
-            "ldapDn": "",
-            "userSearchBase": "",
-        },
-    ):
-        """
-        Get LDAP Syncs
-        :return: result dictionary
+        *,
+        return_tags=[
+            "name",
+            "ldapDn",
+            "userSearchBase",
+        ],
+    ) -> Union[dict, None]:
+        """Get LDAP syncs
+
+        Parameters
+        ----------
+        return_tags : list, optional
+            The categories to be returned, by default [ "name", "ldapDn", "userSearchBase", ]
+
+        Returns
+        -------
+        dict, Fault
+            A dict containing the returned info, or a Fault exception if an AXL error occured.
         """
         try:
             return self.client.listLdapDirectory(
                 {"name": "%"},
-                returnedTags=tagfilter,
+                returnedTags={k: '' for k in return_tags},
             )["return"]["ldapDirectory"]
         except Fault as e:
             return e
@@ -348,15 +358,24 @@ class axl(object):
         except Fault as e:
             return e
 
-    def do_change_dnd_status(self, **args):
-        """
-        Do Change DND Status
-        :param userID:
-        :param status:
-        :return: result dictionary
+    @serialize
+    def do_change_dnd_status(self, user_id: str, dnd_enabled: bool) -> Union[dict, Fault]:
+        """Turns on/off DND for all devices associated with a given user.
+
+        Parameters
+        ----------
+        user_id : str
+            The user whose devices you want to change DND status
+        dnd_enabled : bool
+            True to turn on DND, False to turn it off
+
+        Returns
+        -------
+        Union[dict, Fault]
+            Dict of response from AXL, or Fault if an AXL error occured.
         """
         try:
-            return self.client.doChangeDNDStatus(**args)
+            return self.client.doChangeDNDStatus(userID=user_id, dndStatus=dnd_enabled)
         except Fault as e:
             return e
 
