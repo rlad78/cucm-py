@@ -224,8 +224,10 @@ class axl(object):
 
         Returns
         -------
-        list[dict], Fault
-            A list of all location info, or a Fault exception if an issue occured.
+        list[dict]
+            A list of all location info.
+        Fault
+            The error returned from AXL, if one occured.
         """
         try:
             return self.client.listLocation(
@@ -247,6 +249,8 @@ class axl(object):
         -------
         dict
             Contains 'num_rows', 'query', and 'rows' only if the query returned anything. Otherwise, only returns 'num_rows' = 0 and 'query' = query.
+        Fault
+            The error returned from AXL, if one occured.
         """
         result = {"num_rows": 0, "query": query}
 
@@ -273,14 +277,19 @@ class axl(object):
         return result
 
     def sql_query(self, query: str) -> Union[list[list[str]], Fault]:
-        """Runs an SQL query on the UCM DB and returns the response.
+        """Runs an SQL query on the UCM DB and returns the results.
 
-        Args:
-            query (str): The SQL query to run. Do not include "run sql" in the query.
+        Parameters
+        ----------
+        query : str
+            The SQL query to run. Do not include "run sql" in your query (as you would in the UCM CLI interface)
 
-        Returns:
-            list[list[str]]: Nested list of results, with the "top" list being the category header, and the following lists containing the query's returned rows.
-            Fault: Exception returned from AXL if an issue occured when running the SQL query.
+        Returns
+        -------
+        list[list[str]]
+            The returned SQL rows in the form of a nested list, with the first "row" being the headers.
+        Fault
+            The error returned from AXL, if one occured.
         """
         try:
             recv = self.client.executeSQLQuery(query)["return"]
@@ -301,14 +310,20 @@ class axl(object):
 
         return parsed_data
 
-    def sql_update(self, query: str) -> dict:
+    def sql_update(self, query: str) -> Union[dict, Fault]:
         """Run an update on the UCM SQL DB.
 
-        Args:
-            query (str): SQL query to be run.
+        Parameters
+        ----------
+        query : str
+            The SQL query to run. Do not include "run sql" in your query (as you would in the UCM CLI interface)
 
-        Returns:
-            dict: AXL status return code.
+        Returns
+        -------
+        dict
+            The response from AXL if all goes well
+        Fault
+            The error returned from AXL, if one occured
         """
         try:
             return self.client.executeSQLUpdate(query)["return"]
@@ -335,8 +350,10 @@ class axl(object):
 
         Returns
         -------
-        dict, Fault
-            A dict containing the returned info, or a Fault exception if an AXL error occured.
+        dict
+            The response from AXL if all goes well
+        Fault
+            The error returned from AXL, if one occured
         """
         try:
             return self.client.listLdapDirectory(
@@ -346,6 +363,7 @@ class axl(object):
         except Fault as e:
             return e
 
+    # ? don't want to do LDAP sync to test this one out...
     @serialize
     def do_ldap_sync(self, uuid):
         """
@@ -371,14 +389,17 @@ class axl(object):
 
         Returns
         -------
-        Union[dict, Fault]
-            Dict of response from AXL, or Fault if an AXL error occured.
+        dict
+            The response from AXL if all goes well
+        Fault
+            The error returned from AXL, if one occured
         """
         try:
             return self.client.doChangeDNDStatus(userID=user_id, dndStatus=dnd_enabled)
         except Fault as e:
             return e
 
+    # ? no idea what this does
     def do_device_login(self, **args):
         """
         Do Device Login
@@ -392,6 +413,7 @@ class axl(object):
         except Fault as e:
             return e
 
+    # ? no idea what this does
     def do_device_logout(self, **args):
         """
         Do Device Logout
@@ -404,12 +426,24 @@ class axl(object):
         except Fault as e:
             return e
 
-    def do_device_reset(self, name="", uuid=""):
-        """
-        Do Device Reset
-        :param name: device name
-        :param uuid: device uuid
-        :return: result dictionary
+    def do_device_reset(self, name="", uuid="") -> Union[dict, Fault, None]:
+        """Sends a device reset to the requested phone. Same as pressing the "Reset" button on a phone in the UCM web interface.
+
+        Parameters
+        ----------
+        name : str, optional
+            The device name. Do not provide the uuid if you've already provided name.
+        uuid : str, optional
+            The uuid of the device. Do not provide the device name if you've already provided the uuid.
+
+        Returns
+        -------
+        dict
+            The response from AXL if all goes well.
+        Fault
+            The error returned from AXL, if one occurs.
+        None
+            If both/neither name and uuid are supplied as parameters.
         """
         if name != "" and uuid == "":
             try:
