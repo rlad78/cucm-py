@@ -75,15 +75,21 @@ class WSDLException(Exception):
 
 class TagNotValid(Exception):
     def __init__(
-        self, tag: str, func: Callable, valid_tags: list[str], *args: object
+        self, tag: str, valid_tags: list[str], *args, func=None, elem_name=""
     ) -> None:
         self.tag = tag
         self.func = func
+        self.element = elem_name
         self.valid_tags = valid_tags
         super().__init__(*args)
 
     def __str__(self) -> str:
-        return f"'{self.tag}; is not a valid return tag for {self.func.__name__}(). Valid tags are:\n{self.valid_tags}"
+        if self.func is not None:
+            return f"'{self.tag}; is not a valid return tag for {self.func.__name__}(). Valid tags are:\n{self.valid_tags}"
+        elif self.element:
+            return f"'{self.tag}; is not a valid return tag for {self.element}. Valid tags are:\n{self.valid_tags}"
+        else:
+            return f"Invalid tag encountered: '{self.tag}'"
 
 
 class DumbProgrammerException(Exception):

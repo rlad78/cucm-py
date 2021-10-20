@@ -115,7 +115,7 @@ def check_tags(element_name: str):
                 legal_tags: list[str] = get_return_tags(args[0].zeep, element_name)
                 for tag in kwargs["return_tags"]:
                     if tag not in legal_tags:
-                        raise TagNotValid(tag, func, legal_tags)
+                        raise TagNotValid(tag, legal_tags, func=func)
                 # all tags good
                 return func(*args, **kwargs)
 
