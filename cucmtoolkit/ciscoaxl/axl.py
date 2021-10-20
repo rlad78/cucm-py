@@ -358,7 +358,7 @@ class axl(object):
         try:
             return self.client.listLdapDirectory(
                 {"name": "%"},
-                returnedTags={k: '' for k in return_tags},
+                returnedTags={k: "" for k in return_tags},
             )["return"]["ldapDirectory"]
         except Fault as e:
             return e
@@ -377,7 +377,9 @@ class axl(object):
             return e
 
     @serialize
-    def do_change_dnd_status(self, user_id: str, dnd_enabled: bool) -> Union[dict, Fault]:
+    def do_change_dnd_status(
+        self, user_id: str, dnd_enabled: bool
+    ) -> Union[dict, Fault]:
         """Turns on/off DND for all devices associated with a given user.
 
         Parameters
@@ -605,6 +607,7 @@ class axl(object):
         else:
             return None
 
+    # ! gonna need help with this one too
     def update_location(self, **args):
         """
         Update a Location
