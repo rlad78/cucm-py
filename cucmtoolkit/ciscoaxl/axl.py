@@ -1930,7 +1930,7 @@ class axl(object):
             "description",
             "routePartitionName",
         ],
-    ) -> list:
+    ) -> list[dict]:
         """Get all directory numbers that match the given criteria.
 
         Parameters
@@ -1946,8 +1946,8 @@ class axl(object):
 
         Returns
         -------
-        list
-            [description]
+        list[dict]
+            A list of all directory numbers found. List will be empty if no DNs are found.
         """
         tags = _tag_handler(return_tags)
 
@@ -1974,15 +1974,20 @@ class axl(object):
                 skip += 1000
         return data
 
-    def get_directory_number(self, **args):
-        """
-        Get directory number details
-        :param name:
-        :param partition:
-        :return: result dictionary
-        """
+    @serialize
+    @check_tags("getLine")
+    def get_directory_number(
+        self,
+        pattern: str,
+        route_partition: str,
+        *,
+        return_tags=["pattern", "description", "routePartitionName"],
+    ):
+        tags = _tag_handler(return_tags)
         try:
-            return self.client.getLine(**args)["return"]["line"]
+            return self.client.getLine(
+                pattern=pattern, routePartitionName=route_partition, returnedTags=tags
+            )["return"]["line"]
         except Fault as e:
             return e
 
@@ -3428,9 +3433,6 @@ def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
     dict
         [description]
     """
-    if not tags:
-        return data
-
     working_data = data.copy()
     for tag, value in data.items():
         if tag not in tags and len(tags) > 0 and value is None:
