@@ -3433,7 +3433,7 @@ def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
 
     working_data = data.copy()
     for tag, value in data.items():
-        if tag not in tags and value is None:
+        if tag not in tags and len(tags) > 0 and value is None:
             working_data.pop(tag, None)
         elif type(value) == dict and "_value_1" in value:
             working_data[tag] = value["_value_1"]
