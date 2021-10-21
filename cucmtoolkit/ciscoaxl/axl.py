@@ -17,7 +17,7 @@ from cucmtoolkit.ciscoaxl.validation import (
     get_ucm_version,
 )
 from cucmtoolkit.ciscoaxl.exceptions import *
-from cucmtoolkit.ciscoaxl.wsdl import get_return_tags
+from cucmtoolkit.ciscoaxl.wsdl import get_return_tags, fix_return_tags
 import cucmtoolkit.ciscoaxl.configs as cfg
 import re
 import urllib3
@@ -60,6 +60,20 @@ def serialize(func: TCallable) -> TCallable:
             return dict()
         elif issubclass(type(r_value), Exception):
             return r_value
+        elif (
+            "return_tags" not in kwargs
+            and (
+                tags_param := inspect.signature(func).parameters.get(
+                    "return_tags", None
+                )
+            )
+            is not None
+        ):
+            r_dict = serialize_object(r_value, dict)
+            return _tag_serialize_filter(tags_param.default, r_dict)
+        elif "return_tags" in kwargs:
+            r_dict = serialize_object(r_value, dict)
+            return _tag_serialize_filter(kwargs["return_tags"], r_dict)
         else:
             return serialize_object(r_value, dict)
 
@@ -73,10 +87,30 @@ def serialize_list(func: TCallable) -> TCallable:
         if cfg.DISABLE_SERIALIZER:
             return r_value
 
-        if type(r_value) == list:
-            return [serialize_object(element, dict) for element in r_value]
-        else:
+        if type(r_value) != list:
             return r_value
+        elif (
+            "return_tags" not in kwargs
+            and (
+                tags_param := inspect.signature(func).parameters.get(
+                    "return_tags", None
+                )
+            )
+            is not None
+        ):
+            return [
+                _tag_serialize_filter(
+                    tags_param.default, serialize_object(element, dict)
+                )
+                for element in r_value
+            ]
+        elif "return_tags" in kwargs:
+            return [
+                _tag_serialize_filter(
+                    kwargs["return_tags"], serialize_object(element, dict)
+                )
+                for element in r_value
+            ]
 
     return wrapper
 
@@ -92,13 +126,6 @@ def check_tags(element_name: str):
                 raise DumbProgrammerException(
                     f"Forgot to include self in {func.__name__}!!!!"
                 )
-            elif "return_tags" not in kwargs:
-                # tags are default, continue
-                return func(*args, **kwargs)
-            elif not element_name:
-                raise DumbProgrammerException(
-                    f"Forgot to provide element_name in check_tags decorator on {func.__name__}!!!"
-                )
             elif (
                 tags_param := inspect.signature(func).parameters.get(
                     "return_tags", None
@@ -111,14 +138,31 @@ def check_tags(element_name: str):
                 raise DumbProgrammerException(
                     f"Forgot to add '*' before return_tags on {func.__name__}()"
                 )
-            else:
-                legal_tags: list[str] = get_return_tags(args[0].zeep, element_name)
-                for tag in kwargs["return_tags"]:
-                    if tag not in legal_tags:
-                        raise TagNotValid(tag, legal_tags, func=func)
-                # all tags good
+            elif not element_name:
+                raise DumbProgrammerException(
+                    f"Forgot to provide element_name in check_tags decorator on {func.__name__}!!!"
+                )
+            elif "return_tags" not in kwargs:
+                # tags are default
                 return func(*args, **kwargs)
+            elif type(kwargs["return_tags"]) == list:
+                # supply all legal tags if an empty list is provided
+                if len(kwargs["return_tags"]) == 0:
+                    kwargs["return_tags"] = fix_return_tags(
+                        z_client=args[0].zeep,
+                        element_name=element_name,
+                        tags=get_return_tags(args[0].zeep, element_name),
+                    )
+                    return func(*args, **kwargs)
+                else:
+                    kwargs["return_tags"] = fix_return_tags(
+                        z_client=args[0].zeep,
+                        element_name=element_name,
+                        tags=kwargs["return_tags"],
+                    )
+                    return func(*args, **kwargs)
 
+        wrapper.element_name = element_name
         return wrapper
 
     return check_tags_decorator
@@ -219,7 +263,7 @@ class axl(object):
         name : str, optional
             Name to search against all locations, by default "%", the SQL "any" wildcard.
         return_tags : list, optional
-            The categories to be returned, by default [ "name", "withinAudioBandwidth", "withinVideoBandwidth", "withinImmersiveKbits", ]. All other categories not provided will have a None value.
+            The categories to be returned, by default [ "name", "withinAudioBandwidth", "withinVideoBandwidth", "withinImmersiveKbits", ]. If an empty list is provided, all categories will be returned.
 
         Returns
         -------
@@ -228,11 +272,15 @@ class axl(object):
         Fault
             The error returned from AXL, if one occured.
         """
+        if return_tags and type(return_tags[0]) == dict:
+            tags = return_tags[0]
+        elif return_tags:
+            tags = {t: "" for t in return_tags}
+
         try:
-            return self.client.listLocation(
-                {"name": name},
-                returnedTags={t: "" for t in return_tags},
-            )["return"]["location"]
+            return self.client.listLocation({"name": name}, returnedTags=tags,)[
+                "return"
+            ]["location"]
         except Fault as e:
             return e
 
@@ -345,7 +393,7 @@ class axl(object):
         Parameters
         ----------
         return_tags : list, optional
-            The categories to be returned, by default [ "name", "ldapDn", "userSearchBase", ]
+            The categories to be returned, by default [ "name", "ldapDn", "userSearchBase", ]. If an empty list is provided, all categories will be returned.
 
         Returns
         -------
@@ -1869,25 +1917,62 @@ class axl(object):
         except Fault as e:
             return e
 
+    @serialize_list
+    @check_tags("listLine")
     def get_directory_numbers(
         self,
-        tagfilter={
-            "pattern": "",
-            "description": "",
-            "routePartitionName": "",
-        },
-    ):
+        pattern="%",
+        description="%",
+        route_partition="%",
+        *,
+        return_tags=[
+            "pattern",
+            "description",
+            "routePartitionName",
+        ],
+    ) -> list:
+        """Get all directory numbers that match the given criteria.
+
+        Parameters
+        ----------
+        pattern : str, optional
+            DN pattern to match against, by default "%" which is the SQL wildcard for "any"
+        description : str, optional
+            Description string to match against, by default "%" which is the SQL wildcard for "any"
+        route_partition : str, optional
+            Route partition name to match against, by default "%" which is the SQL wildcard for "any"
+        return_tags : list, optional
+            The categories to be returned, by default [ "pattern", "description", "routePartitionName", ]. If an empty list is provided, all categories will be returned.
+
+        Returns
+        -------
+        list
+            [description]
         """
-        Get directory numbers
-        :param mini: return a list of tuples of directory number details
-        :return: A list of dictionary's
-        """
-        try:
-            return self.client.listLine({"pattern": "%"}, returnedTags=tagfilter,)[
-                "return"
-            ]["line"]
-        except Fault as e:
-            return e
+        tags = _tag_handler(return_tags)
+
+        skip = 0
+        recv: dict = dict()
+        data: list = []
+
+        while recv is not None:
+            try:
+                recv = self.client.listLine(
+                    searchCriteria={
+                        "pattern": pattern,
+                        "description": description,
+                        "routePartitionName": route_partition,
+                    },
+                    returnedTags=tags,
+                    first=1000,
+                    skip=skip,
+                )["return"]
+            except Fault as e:
+                return e
+            if recv is not None:
+                data.extend(recv["line"])
+                skip += 1000
+        return data
 
     def get_directory_number(self, **args):
         """
@@ -3307,3 +3392,49 @@ class axl(object):
             return self.client.removeCallManagerGroup({"name": name})
         except Fault as e:
             return e
+
+
+def _tag_handler(tags: list) -> dict:
+    """Internal function for handling basic and complex return tag lists. Do not use.
+
+    Parameters
+    ----------
+    tags : list
+        A list of str tag names, or a list containing a single dict of all tags
+
+    Returns
+    -------
+    dict
+        A dict with properly formatted tags for Zeep
+    """
+    if tags and type(tags[0]) == dict:
+        return tags[0]
+    elif all([bool(type(t) == str) for t in tags]):
+        return {t: "" for t in tags}
+
+
+def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
+    """[summary]
+
+    Parameters
+    ----------
+    tags : Union[list, dict]
+        [description]
+    data : dict
+        [description]
+
+    Returns
+    -------
+    dict
+        [description]
+    """
+    if not tags:
+        return data
+
+    working_data = data.copy()
+    for tag, value in data.items():
+        if tag not in tags and value is None:
+            working_data.pop(tag, None)
+        elif type(value) == dict and "_value_1" in value:
+            working_data[tag] = value["_value_1"]
+    return working_data
