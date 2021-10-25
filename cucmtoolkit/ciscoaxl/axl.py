@@ -1955,6 +1955,17 @@ class axl(object):
         recv: dict = dict()
         data: list = []
 
+        return _chunk_data(
+            self.client.listLine,
+            "line",
+            searchCriteria={
+                "pattern": pattern,
+                "description": description,
+                "routePartitionName": route_partition,
+            },
+            returnedTags=tags,
+        )
+
         while recv is not None:
             try:
                 recv = self.client.listLine(
@@ -2263,6 +2274,7 @@ class axl(object):
             return e
 
     @serialize_list
+    @check_tags("listPhone")
     def get_phones(
         self,
         name="%",
@@ -2270,40 +2282,30 @@ class axl(object):
         css="%",
         device_pool="%",
         security_profile="%",
-        tagfilter={
-            "name": "",
-            "product": "",
-            "description": "",
-            "protocol": "",
-            "locationName": "",
-            "callingSearchSpaceName": "",
-        },
+        *,
+        return_tags=[
+            "name",
+            "product",
+            "description",
+            "protocol",
+            "locationName",
+            "callingSearchSpaceName",
+        ],
     ) -> list[dict]:
-        skip = 0
-        a = []
-        query = {
-            "name": name,
-            "descrption": description,
-            "callingSearchSpaceName": css,
-            "devicePoolName": device_pool,
-            "securityProfileName": security_profile,
-        }
-        tagfilter
+        tags: dict = _tag_handler(return_tags)
 
-        def inner(skip):
-            while True:
-                res = self.client.listPhone(
-                    searchCriteria=query, returnedTags=tagfilter, first=1000, skip=skip
-                )["return"]
-                skip = skip + 1000
-                if res is not None and "phone" in res:
-                    yield res["phone"]
-                else:
-                    break
-
-        for each in inner(skip):
-            a.extend(each)
-        return a
+        return _chunk_data(
+            self.client.listPhone,
+            "phone",
+            searchCriteria={
+                "name": name,
+                "description": description,
+                "callingSearchSpaceName": css,
+                "devicePoolName": device_pool,
+                "securityProfileName": security_profile,
+            },
+            returnedTags=tags,
+        )
 
     @serialize
     def get_phone(self, **args):
@@ -3440,3 +3442,19 @@ def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
         elif type(value) == dict and "_value_1" in value:
             working_data[tag] = value["_value_1"]
     return working_data
+
+
+def _chunk_data(axl_request: Callable, data_label: str, **kwargs) -> None:
+    skip = 0
+    recv: dict = dict()
+    data: list = []
+
+    while recv is not None:
+        try:
+            recv = axl_request(**kwargs, first=1000, skip=skip)["return"]
+        except Fault as e:
+            return e
+        if recv is not None:
+            data.extend(recv[data_label])
+            skip += 1000
+    return data
