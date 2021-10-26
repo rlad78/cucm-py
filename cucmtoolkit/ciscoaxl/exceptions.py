@@ -126,3 +126,12 @@ class UCMVersionError(_ServerError):
 
     def __str__(self) -> str:
         return f"The UCM server at {self.server} has an unsupported version '{self.version}'"
+
+
+class UCMVersionInvalid(Exception):
+    def __init__(self, version: str) -> None:
+        self.version = version
+        super().__init__()
+
+    def __str__(self) -> str:
+        return f"An invalid CUCM version was provided: {self.version}"

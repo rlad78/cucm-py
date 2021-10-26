@@ -211,6 +211,8 @@ class axl(object):
 
         Raises
         ------
+        UCMVersionInvalid
+            if an invalid UCM version is provided
         UCMException
             if an issue regarding UCM is found
         AXLException
@@ -225,8 +227,16 @@ class axl(object):
                 f"Could not connect to {cucm}, please check your server."
             )
 
-        cucm_version = get_ucm_version(cucm, port)
-        wsdl = str(cfg.ROOT_DIR / "schema" / cucm_version / "AXLAPI.wsdl")
+        if version != "":
+            cucm_version = version
+        else:
+            cucm_version = get_ucm_version(cucm, port)
+
+        wsdl_path = cfg.ROOT_DIR / "schema" / cucm_version / "AXLAPI.wsdl"
+        if not wsdl_path.parent.is_dir():
+            raise UCMVersionInvalid(cucm_version)
+        wsdl = str(wsdl_path)
+
         session = Session()
         session.verify = False
         session.auth = HTTPBasicAuth(username, password)
