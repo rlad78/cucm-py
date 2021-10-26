@@ -9,7 +9,7 @@ Links:
  - https://developer.cisco.com/site/axl/
 """
 
-from typing import Any, Callable, TypeVar, Union
+from typing import Callable, TypeVar, Union, overload
 from typing_extensions import ParamSpec
 from cucmtoolkit.ciscoaxl.validation import (
     validate_ucm_server,
@@ -29,7 +29,7 @@ from zeep.transports import Transport
 from zeep.cache import SqliteCache
 from zeep.exceptions import Fault
 from zeep.helpers import serialize_object
-from functools import wraps
+from functools import wraps, singledispatchmethod
 import inspect
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -262,7 +262,7 @@ class axl(object):
         ----------
         name : str, optional
             Name to search against all locations, by default "%", the SQL "any" wildcard.
-        return_tags : list, optional
+        return_tags : list, optional, keyword-only
             The categories to be returned, by default [ "name", "withinAudioBandwidth", "withinVideoBandwidth", "withinImmersiveKbits", ]. If an empty list is provided, all categories will be returned.
 
         Returns
@@ -392,7 +392,7 @@ class axl(object):
 
         Parameters
         ----------
-        return_tags : list, optional
+        return_tags : list, optional, keyword-only
             The categories to be returned, by default [ "name", "ldapDn", "userSearchBase", ]. If an empty list is provided, all categories will be returned.
 
         Returns
@@ -1930,7 +1930,7 @@ class axl(object):
             "description",
             "routePartitionName",
         ],
-    ) -> list[dict]:
+    ) -> Union[list[dict], Fault]:
         """Get all directory numbers that match the given criteria.
 
         Parameters
@@ -1941,13 +1941,15 @@ class axl(object):
             Description string to match against, by default "%" which is the SQL wildcard for "any"
         route_partition : str, optional
             Route partition name to match against, by default "%" which is the SQL wildcard for "any"
-        return_tags : list, optional
+        return_tags : list, optional, keyword-only
             The categories to be returned, by default [ "pattern", "description", "routePartitionName", ]. If an empty list is provided, all categories will be returned.
 
         Returns
         -------
         list[dict]
             A list of all directory numbers found. List will be empty if no DNs are found.
+        Fault
+            If an error occurs, returns the error provided by AXL.
         """
         tags = _tag_handler(return_tags)
 
@@ -1970,7 +1972,25 @@ class axl(object):
         route_partition: str,
         *,
         return_tags=["pattern", "description", "routePartitionName"],
-    ):
+    ) -> Union[dict, Fault]:
+        """Finds the DN matching the provided pattern and Route Partition.
+
+        Parameters
+        ----------
+        pattern : str
+            The digits of the DN. Must be exact, no SQL wildcards.
+        route_partition : str
+            The Route Partition where the DN can be found. Must be exact, no SQL wildcards.
+        return_tags : list, optional, keyword-only
+            The categories to be returned, by default ["pattern", "description", "routePartitionName"]. If an empty list is provided, all categories will be returned.
+
+        Returns
+        -------
+        dict
+            If the DN is found, returns requested data.
+        Fault
+            If the DN is not found or an error occurs, returns the error provided by AXL.
+        """
         tags = _tag_handler(return_tags)
         try:
             return self.client.getLine(
@@ -2082,24 +2102,49 @@ class axl(object):
         except Fault as e:
             return e
 
-    def delete_directory_number(self, pattern="", routePartitionName="", uuid=""):
-        """
-        Delete a directory number
-        :param directory_number: The name of the directory number to delete
-        :return: result dictionary
+    @serialize
+    def delete_directory_number(
+        self, uuid="", pattern="", route_partition=""
+    ) -> Union[dict, Fault]:
+        """Attempts to delete a DN.
+
+        Parameters
+        ----------
+        uuid : str, optional
+            The ID value of the directory number provided by AXL. If uuid is provided, all other arguments will be ignored.
+        pattern : str, optional
+            The exact digits of the DN. If providing a pattern, must also provide route_partition.
+        route_partition : str, optional
+            The Route Partition where the DN can be found.
+
+        Returns
+        -------
+        dict
+            If no errors occured, returns the status code provided by AXL.
+        Fault
+            If an error occured, returns the error thrown by AXL.
+
+        Raises
+        ------
+        InvalidArguments
+            when either 'uuid' or a combination of 'pattern' and 'route_partition' aren't provided.
         """
         if uuid != "":
             try:
                 return self.client.removeLine(uuid=uuid)
             except Fault as e:
                 return e
-        else:
+        elif pattern != "" and route_partition != "":
             try:
                 return self.client.removeLine(
-                    pattern=pattern, routePartitionName=routePartitionName
+                    pattern=pattern, routePartitionName=route_partition
                 )
             except Fault as e:
                 return e
+        else:
+            raise InvalidArguments(
+                "If not using a uuid, both pattern and route_partition must be provided."
+            )
 
     def update_directory_number(self, **args):
         """
@@ -3421,7 +3466,7 @@ def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
     return working_data
 
 
-def _chunk_data(axl_request: Callable, data_label: str, **kwargs) -> None:
+def _chunk_data(axl_request: Callable, data_label: str, **kwargs) -> Union[list, Fault]:
     skip = 0
     recv: dict = dict()
     data: list = []

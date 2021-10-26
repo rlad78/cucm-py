@@ -96,6 +96,10 @@ class DumbProgrammerException(Exception):
     pass
 
 
+class InvalidArguments(Exception):
+    pass
+
+
 class UDSConnectionError(_ServerError):
     def __str__(self) -> str:
         return f"Could not connect to CUCM UDS service at {self.server}"
