@@ -134,4 +134,8 @@ class UCMVersionInvalid(Exception):
         super().__init__()
 
     def __str__(self) -> str:
+<<<<<<< HEAD
         return f"An invalid CUCM version was provided: {self.version}"
+=======
+        return f"An invalid CUCM version was supplied: {self.version}"
+>>>>>>> cc617ae407a56d0b99b392e54c3bda05bf5025a7
