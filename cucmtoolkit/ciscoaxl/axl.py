@@ -260,12 +260,24 @@ class axl(object):
         )
 
     def print_axl_arguments(self, method_name: str) -> None:
+        """Prints the full argument list for the AXL request associated with a method. Use this on methods that require you to know category names for things like update operations and queries.
+
+        Parameters
+        ----------
+        method_name : str
+            The name of the method you wish to investigate. Do not include parenthesis () or prefix with 'axl.'
+
+        Raises
+        ------
+        Exception
+            when the method name provided isn't valid, or there isn't an associated AXL request (no XSD element)
+        """
         method = getattr(self, method_name, None)
         if method is None:
             raise Exception(f"'{method_name}' is not a valid method of the 'axl' class")
 
         if not hasattr(method, "element_name"):
-            raise Exception(f"'{method_name}' does not have an WDSL element set")
+            raise Exception(f"'{method_name}' does not have an associated XSD element")
 
         print_element_layout(self.zeep, method.element_name)
 
