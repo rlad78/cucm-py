@@ -8,27 +8,33 @@ from cucmtoolkit.ciscoaxl.exceptions import (
 )
 
 
+class AXLElement:
+    def __init__(self, element: Element, parent=None) -> None:
+        self._element = element
+        self.type = element.type
+        self.name = element.name
+        self.parent = parent
+        self.required = True if element.min_occurs > 0 else False
+
+        # find children
+        self.children = []
+        if hasattr(element.type, "elements"):
+            for child in [e[1] for e in element.type.elements]:
+                self.children.append(AXLElement(child, self))
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return f"{self.name}{' (required)' if self.required else ''}"
+
+
 def __get_element_by_name(z_client: Client, element_name: str) -> Element:
     try:
         element = z_client.get_element(f"ns0:{element_name}")
     except LookupError:
         raise WSDLException(f"Could not find element {element_name}")
     return element
-
-
-# def __get_element_type(z_client: Client, element: Element):
-#     try:
-#         elem_type = z_client.get_type(f"ns0:{element.type.name}")
-#     except AttributeError:
-#         raise WSDLException(f"{element.name} has no retrievable type value")
-#     except LookupError:
-#         raise WSDLException(f"Could not find type {element.type.name}")
-#     return elem_type
-
-
-# def __get_element_type_by_name(z_client: Client, element_name: str):
-#     element = __get_element_by_name(z_client, element_name)
-#     return __get_element_type(z_client, element)
 
 
 def __get_element_child_args(
@@ -70,6 +76,21 @@ def _get_element_tree(
             continue
         elem_tree[e_name] = _get_element_tree(z_client, element=e_obj)
     return elem_tree if len(elem_tree) > 0 else ""
+
+
+def get_element_map(
+    z_client: Client, element=None, element_name=""
+) -> Union[AXLElement, None]:
+    if element is not None:
+        root_element = AXLElement(element)
+    elif element_name:
+        root_element = AXLElement(__get_element_by_name(z_client, element_name))
+    else:
+        DumbProgrammerException(
+            "Used get_element_map without passing in an element name or element obj"
+        )
+
+    # if root_element
 
 
 def get_search_criteria(z_client: Client, element_name: str) -> list[str]:
@@ -128,3 +149,19 @@ def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> lis
             return [tags_in_tree(tags_tree, tags)]
     else:
         return tags
+
+
+def print_element_layout(z_client: Client, element_name: str) -> None:
+    def print_element(elem: AXLElement, indent=0) -> None:
+        if elem.name == "_value_1":
+            return None
+
+        print(
+            f"{'|  ' * indent}{elem}{' (required)' if elem.required and elem.parent is not None else ''}{':' if elem.children and elem.children[0].name != '_value_1' else ''}"
+        )
+        for child in elem.children:
+            print_element(child, indent + 1)
+
+    root: AXLElement = AXLElement(__get_element_by_name(z_client, element_name))
+    for child in root.children:
+        print_element(child)

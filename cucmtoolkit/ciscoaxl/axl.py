@@ -17,7 +17,11 @@ from cucmtoolkit.ciscoaxl.validation import (
     get_ucm_version,
 )
 from cucmtoolkit.ciscoaxl.exceptions import *
-from cucmtoolkit.ciscoaxl.wsdl import get_return_tags, fix_return_tags
+from cucmtoolkit.ciscoaxl.wsdl import (
+    get_return_tags,
+    fix_return_tags,
+    print_element_layout,
+)
 import cucmtoolkit.ciscoaxl.configs as cfg
 import re
 import urllib3
@@ -168,6 +172,18 @@ def check_tags(element_name: str):
     return check_tags_decorator
 
 
+def operation_tag(element_name: str):
+    def operation_tag_decorator(func: TCallable) -> TCallable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        wrapper.element_name = element_name
+        return wrapper
+
+    return operation_tag_decorator
+
+
 class axl(object):
     """
     The AXL class sets up the connection to the call manager with methods for configuring UCM.
@@ -242,6 +258,16 @@ class axl(object):
             "{http://www.cisco.com/AXLAPIService/}AXLAPIBinding",
             f"https://{cucm}:{port}/axl/",
         )
+
+    def print_axl_arguments(self, method_name: str) -> None:
+        method = getattr(self, method_name, None)
+        if method is None:
+            raise Exception(f"'{method_name}' is not a valid method of the 'axl' class")
+
+        if not hasattr(method, "element_name"):
+            raise Exception(f"'{method_name}' does not have an WDSL element set")
+
+        print_element_layout(self.zeep, method.element_name)
 
     @serialize_list
     @check_tags(element_name="listLocation")
@@ -424,6 +450,7 @@ class axl(object):
             return e
 
     @serialize
+    @operation_tag("doChangeDNDStatus")
     def do_change_dnd_status(
         self, user_id: str, dnd_enabled: bool
     ) -> Union[dict, Fault]:
@@ -449,6 +476,7 @@ class axl(object):
             return e
 
     # ? no idea what this does
+    @operation_tag("doDeviceLogin")
     def do_device_login(self, **args):
         """
         Do Device Login
@@ -463,6 +491,7 @@ class axl(object):
             return e
 
     # ? no idea what this does
+    @operation_tag("doDeviceLogout")
     def do_device_logout(self, **args):
         """
         Do Device Logout
@@ -476,6 +505,7 @@ class axl(object):
             return e
 
     @serialize
+    @operation_tag("doDeviceReset")
     def do_device_reset(self, name="", uuid="") -> Union[dict, Fault, None]:
         """Sends a device reset to the requested phone. Same as pressing the "Reset" button on a phone in the UCM web interface.
 
@@ -507,6 +537,7 @@ class axl(object):
                 return e
 
     # ? can't risk testing this
+    @operation_tag("resetSipTrunk")
     def reset_sip_trunk(self, name="", uuid=""):
         """
         Reset SIP Trunk
@@ -526,6 +557,7 @@ class axl(object):
                 return e
 
     @serialize
+    @operation_tag("getLocation")
     def get_location(self, name="", uuid="") -> Union[dict, Fault, None]:
         """Finds the requested location and returns data on that location.
 
@@ -622,6 +654,7 @@ class axl(object):
             except Fault as e:
                 return e
 
+    @operation_tag("removeLocation")
     def delete_location(self, name="", uuid=""):
         """Deletes the requested location.
 
@@ -2103,6 +2136,7 @@ class axl(object):
             return e
 
     @serialize
+    @operation_tag("removeLine")
     def delete_directory_number(
         self, uuid="", pattern="", route_partition=""
     ) -> Union[dict, Fault]:
@@ -2146,7 +2180,11 @@ class axl(object):
                 "If not using a uuid, both pattern and route_partition must be provided."
             )
 
-    def update_directory_number(self, **args):
+    @serialize
+    @operation_tag("updateLine")
+    def update_directory_number(
+        self, uuid="", pattern="", route_partition="", **kwargs
+    ):
         """
         Update a directory number
         :param pattern: Directory number
@@ -2165,10 +2203,22 @@ class axl(object):
         :param forward_to_vm: Forward to voice mail checkbox
         :return: result dictionary
         """
-        try:
-            return self.client.updateLine(**args)
-        except Fault as e:
-            return e
+        if uuid != "":
+            try:
+                return self.client.updateLine(uuid=uuid, **kwargs)
+            except Fault as e:
+                return e
+        elif pattern != "" and route_partition != "":
+            try:
+                return self.client.updateLine(
+                    pattern=pattern, route_partition=route_partition, **kwargs
+                )
+            except Fault as e:
+                return e
+        else:
+            raise InvalidArguments(
+                "If not using a uuid, both pattern and route_partition must be provided."
+            )
 
     def get_cti_route_points(self, tagfilter={"name": "", "description": ""}):
         """
