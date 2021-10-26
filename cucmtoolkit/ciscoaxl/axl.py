@@ -1957,7 +1957,7 @@ class axl(object):
 
         return _chunk_data(
             self.client.listLine,
-            "line",
+            data_label="line",
             searchCriteria={
                 "pattern": pattern,
                 "description": description,
@@ -1965,25 +1965,6 @@ class axl(object):
             },
             returnedTags=tags,
         )
-
-        while recv is not None:
-            try:
-                recv = self.client.listLine(
-                    searchCriteria={
-                        "pattern": pattern,
-                        "description": description,
-                        "routePartitionName": route_partition,
-                    },
-                    returnedTags=tags,
-                    first=1000,
-                    skip=skip,
-                )["return"]
-            except Fault as e:
-                return e
-            if recv is not None:
-                data.extend(recv["line"])
-                skip += 1000
-        return data
 
     @serialize
     @check_tags("getLine")
@@ -2296,7 +2277,7 @@ class axl(object):
 
         return _chunk_data(
             self.client.listPhone,
-            "phone",
+            data_label="phone",
             searchCriteria={
                 "name": name,
                 "description": description,
