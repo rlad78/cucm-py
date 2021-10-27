@@ -20,7 +20,9 @@ class AXLElement:
         self.children = []
         if hasattr(element.type, "elements"):
             for child in [e[1] for e in element.type.elements]:
-                self.children.append(AXLElement(child, self))
+                axl_elem = AXLElement(child, self)
+                if axl_elem.name is not None:
+                    self.children.append(axl_elem)
 
     def __str__(self) -> str:
         return self.name
