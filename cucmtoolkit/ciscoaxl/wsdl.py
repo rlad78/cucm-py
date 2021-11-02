@@ -1,6 +1,9 @@
+from logging import root
 from typing import Union
 from zeep import Client
 from zeep.xsd.elements.element import Element
+from zeep.xsd.elements.indicators import Choice, Sequence
+from zeep.xsd import Nil
 from cucmtoolkit.ciscoaxl.exceptions import (
     WSDLException,
     DumbProgrammerException,
@@ -9,26 +12,102 @@ from cucmtoolkit.ciscoaxl.exceptions import (
 
 
 class AXLElement:
-    def __init__(self, element: Element, parent=None) -> None:
-        self._element = element
-        self.type = element.type
-        self.name = element.name
+    def __init__(self, element: Union[Element, Choice], parent=None) -> None:
+        self.elem = element
         self.parent = parent
-        self.required = True if element.min_occurs > 0 else False
 
-        # find children
-        self.children = []
-        if hasattr(element.type, "elements"):
-            for child in [e[1] for e in element.type.elements]:
-                axl_elem = AXLElement(child, self)
-                if axl_elem.name is not None:
-                    self.children.append(axl_elem)
-
-    def __str__(self) -> str:
-        return self.name
+        if type(element) == Choice:
+            self.name = "[ choice ]"
+            self.type = Choice
+            self.children = [AXLElement(e[1], parent=self) for e in element.elements]
+            self.child_names = [e.name for e in self.children]
+        elif type(element) == Element:
+            self.name = element.name
+            self.type = element.type
+            if hasattr(element.type, "elements"):
+                package = element.type.elements_nested[0][1]
+                if type(package) == Sequence:
+                    self.children = [
+                        AXLElement(e, self)
+                        for e in package
+                        if getattr(e, "name", None) not in ("_value_1", None)
+                        or type(e) == Choice
+                    ]
+                elif type(package) == Element:
+                    self.children = (
+                        [AXLElement(package, self)]
+                        if not package.name.startswith("_value_")
+                        else []
+                    )
+                elif type(package) == Choice:
+                    self.children = [AXLElement(package, self)]
+                else:
+                    raise WSDLException(f"Unknown package format '{type(package)}'")
+            else:
+                self.children = []
+        else:
+            raise WSDLException(f"Unknown element format '{type(element)}'")
 
     def __repr__(self) -> str:
-        return f"{self.name}{' (required)' if self.required else ''}"
+        name = self.name
+        xsd_type = self.type
+        children = len(self.children)
+        return f"AXLElement({name=}, {xsd_type=}, {children=}"
+
+    def print_tree(self, indent=0, show_types=False) -> None:
+        print(
+            f"{'  ' * indent if indent < 2 else ('  |' * (indent - 1)) + '  '}{'┗ ' if indent else ''}",
+            self.name,
+            f"({self.type})" if show_types else "",
+            sep="",
+        )
+        for child in self.children:
+            child.print_tree(indent=indent + 1)
+
+    def get(self, name: str):
+        if not name:
+            return None
+        for child in self.children:
+            if getattr(child, "name", None) == name:
+                return child
+        else:
+            return None
+
+    def find(self, name: str):
+        if not name:
+            return None
+
+        for child in self.children:
+            if getattr(child, "name", None) == name:
+                return child
+            elif child.children:
+                if (result := child.find(name)) is not None:
+                    return result
+        else:
+            return None
+
+    def return_tags(self) -> dict:
+        if self.parent is not None:
+            return self.parent.return_tags()
+        elif (tags_element := self.get("returnedTags")) is None:
+            return {}
+
+        def get_element_tree(element):
+            if not element.children:
+                return Nil
+            elif element.type == Choice:
+                return get_element_tree(element.children[0])
+            else:
+                # return {e.name: get_element_tree(e) for e in element.children}
+                tree_dict: dict = dict()
+                for e in element.children:
+                    if e.type == Choice:
+                        tree_dict[e.children[0].name] = get_element_tree(e.children[0])
+                    else:
+                        tree_dict[e.name] = get_element_tree(e)
+                return tree_dict
+
+        return get_element_tree(tags_element)
 
 
 def __get_element_by_name(z_client: Client, element_name: str) -> Element:
@@ -69,30 +148,17 @@ def _get_element_tree(
             "Used get_element_tree without passing in an element name or element obj"
         )
 
-    if not hasattr(element.type, "elements") or element.max_occurs != 1:
-        return ""  # no needed children
+    if not hasattr(element.type, "elements") or (
+        element.max_occurs != 1 and element.max_occurs != "unbounded"
+    ):
+        return Nil
 
     elem_tree: dict = dict()
-    for e_name, e_obj in element.type.elements:
+    for e_name, e_obj in element.type.elements_nested():
         if e_name == "_value_1":
             continue
         elem_tree[e_name] = _get_element_tree(z_client, element=e_obj)
     return elem_tree if len(elem_tree) > 0 else ""
-
-
-def get_element_map(
-    z_client: Client, element=None, element_name=""
-) -> Union[AXLElement, None]:
-    if element is not None:
-        root_element = AXLElement(element)
-    elif element_name:
-        root_element = AXLElement(__get_element_by_name(z_client, element_name))
-    else:
-        DumbProgrammerException(
-            "Used get_element_map without passing in an element name or element obj"
-        )
-
-    # if root_element
 
 
 def get_search_criteria(z_client: Client, element_name: str) -> list[str]:
@@ -108,21 +174,7 @@ def get_return_tree(z_client: Client, element_name: str) -> dict:
     if not hasattr(root_element.type, "elements"):
         return {"error": f"no sub-elements for '{element_name}'"}
 
-    for e_name, e_obj in root_element.type.elements:
-        if e_name == "returnedTags":
-            return _get_element_tree(z_client, element=e_obj)
-    else:
-        return {"error": f"no 'returnedTags' element for '{element_name}'"}
-
-
-def __pick_from_tags_tree(tags: list[str], tree: dict) -> dict:
-    picked_tree: dict = dict()
-    for tag in tags:
-        tag_value = tree.get(tag, None)
-        if tag_value is None:
-            raise TagNotValid(
-                tag,
-            )
+    return AXLElement(root_element).return_tags()
 
 
 def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> list:
@@ -136,18 +188,18 @@ def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> lis
                 )
         return picked_tree
 
-    tree = _get_element_tree(z_client, element_name=element_name)
-    if type(tree) == str:
-        raise WSDLException(
-            f"Making element tree for '{element_name}' reuslted in nothing"
-        )
+    # tree = _get_element_tree(z_client, element_name=element_name)
+    # if type(tree) == str:
+    #     raise WSDLException(
+    #         f"Making element tree for '{element_name}' reuslted in nothing"
+    #     )
 
-    tags_tree = tree.get("returnedTags", None)
-    if tags_tree is None:
+    tags_tree = AXLElement(__get_element_by_name(z_client, element_name)).return_tags()
+    if not tags_tree:
         raise WSDLException(f"Element '{element_name}' has no returnedTags sub-element")
 
     for tag in tags:
-        if tags_tree.get(tag, None) != "":  # complex tag, replace tag list with dict
+        if tags_tree.get(tag, None) != Nil:  # complex tag, replace tag list with dict
             return [tags_in_tree(tags_tree, tags)]
     else:
         return tags
