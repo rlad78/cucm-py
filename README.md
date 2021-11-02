@@ -1,5 +1,7 @@
 # CUCM Toolkit
 
+> Please note that this is **still very early in development** and at this time and it is still recommended to use the original [ciscoaxl](https://github.com/PresidioCode/ciscoaxl) module.
+
 ## Background
 
 This project is a fork of PresidioCode's [ciscoaxl](https://github.com/PresidioCode/ciscoaxl) Python module that aims to address a lot of the issues/annoyances found over its use. The main goals for improving the AXL SDK are the following:
@@ -15,5 +17,3 @@ This project also aims to integrate [RisPort](https://developer.cisco.com/docs/s
 - Getting IP addresses of devices matching a certain criteria
 - Listing devices that haven't connected to a UCM server within a certain period of time
 - (will think of more later...)
-
-Please note that this is **still very early in development** and at this time, it is still recommended to use the original [ciscoaxl](https://github.com/PresidioCode/ciscoaxl) module.
