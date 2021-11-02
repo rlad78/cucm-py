@@ -1,14 +1,3 @@
-"""
-Class to interface with cisco ucm axl api.
-Author: Jeff Levensailor
-Version: 0.1
-Dependencies:
- - zeep: https://python-zeep.readthedocs.io/en/master/
-
-Links:
- - https://developer.cisco.com/site/axl/
-"""
-
 from typing import Callable, TypeVar, Union, overload
 from typing_extensions import ParamSpec
 from cucmtoolkit.ciscoaxl.validation import (
@@ -25,7 +14,6 @@ from cucmtoolkit.ciscoaxl.wsdl import (
 import cucmtoolkit.ciscoaxl.configs as cfg
 import re
 import urllib3
-from pathlib import Path
 from requests import Session
 from requests.auth import HTTPBasicAuth
 from zeep import Client, Settings
@@ -33,8 +21,10 @@ from zeep.transports import Transport
 from zeep.cache import SqliteCache
 from zeep.exceptions import Fault
 from zeep.helpers import serialize_object
-from functools import wraps, singledispatchmethod
+from functools import wraps
 import inspect
+from copy import deepcopy
+
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -148,23 +138,34 @@ def check_tags(element_name: str):
                 )
             elif "return_tags" not in kwargs:
                 # tags are default
+                if len(tags_param.default) == 0:
+                    kwargs["return_tags"] = (
+                        fix_return_tags(
+                            z_client=args[0].zeep,
+                            element_name=element_name,
+                            tags=get_return_tags(args[0].zeep, element_name),
+                        ),
+                    )
                 return func(*args, **kwargs)
             elif type(kwargs["return_tags"]) == list:
                 # supply all legal tags if an empty list is provided
                 if len(kwargs["return_tags"]) == 0:
-                    kwargs["return_tags"] = fix_return_tags(
-                        z_client=args[0].zeep,
-                        element_name=element_name,
-                        tags=get_return_tags(args[0].zeep, element_name),
+                    kwargs["return_tags"] = (
+                        fix_return_tags(
+                            z_client=args[0].zeep,
+                            element_name=element_name,
+                            tags=get_return_tags(args[0].zeep, element_name),
+                        ),
                     )
-                    return func(*args, **kwargs)
                 else:
-                    kwargs["return_tags"] = fix_return_tags(
-                        z_client=args[0].zeep,
-                        element_name=element_name,
-                        tags=kwargs["return_tags"],
+                    kwargs["return_tags"] = (
+                        fix_return_tags(
+                            z_client=args[0].zeep,
+                            element_name=element_name,
+                            tags=kwargs["return_tags"],
+                        ),
                     )
-                    return func(*args, **kwargs)
+                return func(*args, **kwargs)
 
         wrapper.element_name = element_name
         return wrapper
@@ -249,6 +250,7 @@ class axl(object):
         self.username = username
         self.password = password
         self.zeep = axl_client
+        # self.schema = XMLSchema(str(wsdl_path.parent / "AXLSoap.xsd"))
         self.wsdl = wsdl
         self.cucm = cucm
         self.cucm_port = port
@@ -2402,16 +2404,31 @@ class axl(object):
         )
 
     @serialize
-    def get_phone(self, **args):
+    @check_tags("getPhone")
+    def get_phone(self, uuid="", name="", *, return_tags=[]):
         """
         Get device profile parameters
         :param phone: profile name
         :return: result dictionary
         """
-        try:
-            return self.client.getPhone(**args)["return"]["phone"]
-        except Fault as e:
-            return e
+        tags = _tag_handler(return_tags)
+
+        if uuid != "":
+            try:
+                return self.client.getPhone(uuid=uuid, returnedTags=tags)["return"][
+                    "phone"
+                ]
+            except Fault as e:
+                return e
+        elif name != "":
+            try:
+                return self.client.getPhone(name=name, returnedTags=tags)["return"][
+                    "phone"
+                ]
+            except Fault as e:
+                return e
+        else:
+            raise InvalidArguments("Must provide a value for either 'uuid' or 'name'")
 
     def add_phone(
         self,
@@ -3529,12 +3546,34 @@ def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
     dict
         [description]
     """
-    working_data = data.copy()
+
+    def check_value(d: dict) -> dict:
+        d_copy = d.copy()
+        for tag, value in d_copy.items():
+            if type(value) == dict:
+                if "_value_1" in value:
+                    d_copy[tag] = value["_value_1"]
+                else:
+                    d_copy[tag] = check_value(value)
+            elif type(value) == list:
+                for i, d in enumerate(deepcopy(value)):
+                    if type(d) == dict:
+                        value[i] = check_value(d)
+        return d_copy
+
+    working_data = deepcopy(data)
     for tag, value in data.items():
         if tag not in tags and len(tags) > 0 and value is None:
             working_data.pop(tag, None)
-        elif type(value) == dict and "_value_1" in value:
-            working_data[tag] = value["_value_1"]
+        elif type(value) == dict:
+            if "_value_1" in value:
+                working_data[tag] = value["_value_1"]
+            else:
+                working_data[tag] = check_value(value)
+        elif type(value) == list:
+            for i, d in enumerate(deepcopy(value)):
+                if type(d) == dict:
+                    value[i] = check_value(d)
     return working_data
 
 
