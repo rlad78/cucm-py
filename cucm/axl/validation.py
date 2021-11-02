@@ -1,6 +1,6 @@
 from typing import Tuple
-from cucmtoolkit.ciscoaxl.exceptions import *
-from cucmtoolkit.ciscoaxl.configs import ROOT_DIR, CUCM_LATEST_VERSION
+from cucm.axl.exceptions import *
+from cucm.axl.configs import ROOT_DIR, CUCM_LATEST_VERSION
 import requests
 import xml.etree.ElementTree as ET
 from requests.adapters import (
@@ -198,7 +198,7 @@ def get_ucm_version(ucm_url: str, port="8443") -> str:
     UDSParseError
         if the version cannot be parsed from the returned XML
     UCMVersionError
-        if the version found is not supported by cucmtoolkit
+        if the version found is not supported by cucm-py
     """
     url = _generate_proper_url(ucm_url, port)
     if url.endswith("/"):

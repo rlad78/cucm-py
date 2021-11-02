@@ -4,7 +4,7 @@ from zeep import Client
 from zeep.xsd.elements.element import Element
 from zeep.xsd.elements.indicators import Choice, Sequence
 from zeep.xsd import Nil
-from cucmtoolkit.ciscoaxl.exceptions import (
+from cucm.axl.exceptions import (
     WSDLException,
     DumbProgrammerException,
     TagNotValid,

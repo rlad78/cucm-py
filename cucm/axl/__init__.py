@@ -1,2 +1,2 @@
-from .axl import axl
+from .axl import Axl
 from .credentials import get_credentials

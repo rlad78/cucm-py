@@ -1,8 +1,8 @@
-from cucmtoolkit.ciscoaxl import axl
+from cucm.axl import Axl
 from xmlschema import XMLSchema
 from pathlib import Path
 
-ucm = axl("rcarte4", input("enter password pls: "), "ucm-01.clemson.edu", "11.5")
+ucm = Axl("rcarte4", input("enter password pls: "), "ucm-01.clemson.edu", "11.5")
 factory = ucm.client._client.type_factory("ns0")
 phone_returned_tags = factory.RPhone(name="?", description="?")
 

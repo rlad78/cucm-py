@@ -1,17 +1,17 @@
 from typing import Callable, TypeVar, Union, overload
 from typing_extensions import ParamSpec
-from cucmtoolkit.ciscoaxl.validation import (
+from cucm.axl.validation import (
     validate_ucm_server,
     validate_axl_auth,
     get_ucm_version,
 )
-from cucmtoolkit.ciscoaxl.exceptions import *
-from cucmtoolkit.ciscoaxl.wsdl import (
+from cucm.axl.exceptions import *
+from cucm.axl.wsdl import (
     get_return_tags,
     fix_return_tags,
     print_element_layout,
 )
-import cucmtoolkit.ciscoaxl.configs as cfg
+import cucm.axl.configs as cfg
 import re
 import urllib3
 from requests import Session
@@ -116,7 +116,7 @@ def check_tags(element_name: str):
             if cfg.DISABLE_CHECK_TAGS:
                 return func(*args, **kwargs)
 
-            if type(args[0]) != axl:
+            if type(args[0]) != Axl:
                 raise DumbProgrammerException(
                     f"Forgot to include self in {func.__name__}!!!!"
                 )
@@ -185,7 +185,7 @@ def operation_tag(element_name: str):
     return operation_tag_decorator
 
 
-class axl(object):
+class Axl(object):
     """
     The AXL class sets up the connection to the call manager with methods for configuring UCM.
     Tested with environment of;
