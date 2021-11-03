@@ -8,7 +8,7 @@ This project is a fork of PresidioCode's [ciscoaxl](https://github.com/PresidioC
 
 - [x] Serialize and sanatize returned data in a standard dict-like typing
 - [ ] Automate SOAP structure analysis to handle signature verfication on all requests **for all API versions**
-- [x] Verify CUCM and AXL API connection and authentification and give detailed error descriptions
+- [x] Verify CUCM and AXL API connection/authentification and give detailed error descriptions
 - [ ] Supply proper arguments for public user methods instead of accepting args/kwargs
 - [ ] Write throrough docstrings for all public methods
 
