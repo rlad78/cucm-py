@@ -1,4 +1,5 @@
-from typing import Callable
+from typing import Sequence
+import json
 
 
 class _ServerError(Exception):
@@ -71,6 +72,53 @@ class AXLException(UCMException):
 
 class WSDLException(Exception):
     pass
+
+
+class WSDLInvalidArgument(Exception):
+    def __init__(self, argument: str, element_name: str, *args: object) -> None:
+        self.arg = argument
+        self.element = element_name
+        super().__init__(*args)
+
+    def __str__(self) -> str:
+        return f"'{self.arg}' is not a valid argument for {self.element}"
+
+
+class WSDLMissingArguments(Exception):
+    def __init__(
+        self, arguments: Sequence[str], element_name: str, *args: object
+    ) -> None:
+        self.args = arguments
+        self.element = element_name
+        super().__init__(*args)
+
+    def __str__(self) -> str:
+        return f"The following arguments are missing from {self.element}: {self.args}"
+
+
+class WSDLChoiceException(WSDLMissingArguments):
+    def __str__(self) -> str:
+        return f"For {self.element}, you must choose only ONE of the following: {self.args}"
+
+
+class WSDLDrillDownException(WSDLInvalidArgument):
+    def __init__(
+        self, argument: str, structure: dict, element_name: str, *args: object
+    ) -> None:
+        try:
+            self.structure = json.dumps(structure, indent=2)
+        except TypeError:
+            self.structure = str(structure)
+
+        super().__init__(argument, element_name, *args)
+
+    def __str__(self) -> str:
+        return f"'{self.arg}' in {self.element} must be a dict of the following format:\n\n{self.structure}"
+
+
+class WSDLValueOnlyException(WSDLInvalidArgument):
+    def __str__(self) -> str:
+        return f"'{self.arg}' in {self.element} should only be a single value."
 
 
 class TagNotValid(Exception):

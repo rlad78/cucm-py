@@ -4,9 +4,14 @@ from zeep.xsd.elements.element import Element
 from zeep.xsd.elements.indicators import Choice, Sequence
 from zeep.xsd import Nil
 from cucm.axl.exceptions import (
+    WSDLDrillDownException,
     WSDLException,
+    WSDLInvalidArgument,
+    WSDLMissingArguments,
+    WSDLChoiceException,
     DumbProgrammerException,
     TagNotValid,
+    WSDLValueOnlyException,
 )
 
 
@@ -15,14 +20,29 @@ class AXLElement:
         self.elem = element
         self.parent = parent
 
-        if type(element) == Choice:
+        if type(element) == Sequence:
+            self.name = "[ group ]"
+            self.type = Sequence
+            self.children = [AXLElement(e[1], parent=self) for e in element.elements]
+            if self.parent is not None and self.parent.type == Choice:
+                self.needed = False
+            else:
+                self.needed = not element.is_optional
+        elif type(element) == Choice:
             self.name = "[ choice ]"
             self.type = Choice
-            self.children = [AXLElement(e[1], parent=self) for e in element.elements]
+            self.children = [
+                AXLElement(e[1], parent=self) for e in element.elements_nested
+            ]
             self.child_names = [e.name for e in self.children]
+            self.needed = bool(self.elem.min_occurs != 0)
         elif type(element) == Element:
             self.name = element.name
             self.type = element.type
+            if self.parent is not None and self.parent.type == Choice:
+                self.needed = False
+            else:
+                self.needed = not element.is_optional
             if hasattr(element.type, "elements"):
                 package = element.type.elements_nested[0][1]
                 if type(package) == Sequence:
@@ -49,9 +69,35 @@ class AXLElement:
 
     def __repr__(self) -> str:
         name = self.name
-        xsd_type = self.type
+        xsd_type = type(self.type).__name__
         children = len(self.children)
-        return f"AXLElement({name=}, {xsd_type=}, {children=}"
+        return f"AXLElement({name=}, {xsd_type=}, {children=})"
+
+    def _parent_chain(self) -> str:
+        if self.parent is None:
+            return self.name
+        elif self.type == Choice or self.type == Sequence:
+            return self.parent._parent_chain()
+        else:
+            return self.parent._parent_chain() + "." + self.name
+
+    def children_dict(self, required=False) -> dict:
+        c_dict = dict()
+        for child in self.children:
+            if child.type == Choice or child.type == Sequence:
+                i = 1
+                base_name = child.name.split(" ")[1]
+                while f"[ {base_name}{i} ]" in c_dict:
+                    i += 1
+                c_dict[f"[ {base_name}{i} ]"] = child.children_dict(required)
+            elif child.children:
+                c_dict[child.name] = child.children_dict(required)
+            else:
+                if required and child.needed:
+                    c_dict[child.name] = "(required)"
+                else:
+                    c_dict[child.name] = ""
+        return c_dict
 
     def print_tree(self, indent=0, show_types=False) -> None:
         print(
@@ -85,6 +131,80 @@ class AXLElement:
         else:
             return None
 
+    def validate(self, **kwargs) -> None:
+        def choice_peek(choice: AXLElement) -> list[str]:
+            peek_names: list[str] = []
+            for child in choice.children:
+                if not child.name.startswith("[ group"):
+                    peek_names.append(child.name)
+                elif child.type == Sequence:
+                    peek_names.extend([c.name for c in child.children])
+            return peek_names
+
+        c_dict = self.children_dict(required=True)
+        if self.type == Choice:
+            groups: list[list[str]] = [
+                [e.name for e in c.children]
+                for c in self.children
+                if c.name == "[ group ]"
+            ]
+            elements: list[str] = [
+                c.name for c in self.children if not self.name.startswith("[ ")
+            ]
+            # ! CONTINUE HERE
+            # ? how do we check for either only one element or only one group?
+
+        else:
+            for name, value in kwargs.items():
+                if type(value) not in (dict, list):  # * normal tag-value pairs
+                    if name not in c_dict:
+                        choice_list = [
+                            c for c in self.children if c.name == "[ choice ]"
+                        ]
+                        if not choice_list:
+                            raise WSDLInvalidArgument(name, self._parent_chain())
+                        for choice in choice_list:
+                            if name in choice_peek(choice):
+                                choice.validate(**kwargs)
+                                break
+                        else:
+                            raise WSDLInvalidArgument(name, self._parent_chain())
+                    elif type(c_dict[name]) == dict:
+                        raise WSDLDrillDownException(
+                            name, c_dict[name], self._parent_chain()
+                        )
+                elif type(value) == dict:  # * complex types
+                    if name not in c_dict:
+                        choice_list = [
+                            c for c in self.children if c.name == "[ choice ]"
+                        ]
+                        if not choice_list:
+                            raise WSDLInvalidArgument(name, self._parent_chain())
+                        for choice in choice_list:
+                            if name in choice.children_dict():
+                                [c for c in choice.children if c.name == name][
+                                    0
+                                ].validate(**value)
+                                break
+                        else:
+                            raise WSDLInvalidArgument(name, self._parent_chain())
+                    elif type(c_dict[name]) != dict:
+                        raise WSDLValueOnlyException(name, self._parent_chain())
+                    else:
+                        [c for c in self.children if c.name == name][0].validate(
+                            **value
+                        )
+                elif type(value) == list:  # * list of elements
+                    if not value or type(value) == str:
+                        self.validate(**{name: ""})
+                    elif type(value[0]) == dict:
+                        for entry in value:
+                            self.validate(**{name: entry})
+                    else:
+                        raise DumbProgrammerException(
+                            f"Didn't account for type {type(value)} for value type."
+                        )
+
     def return_tags(self) -> dict:
         if self.parent is not None:
             return self.parent.return_tags()
@@ -107,6 +227,21 @@ class AXLElement:
                 return tree_dict
 
         return get_element_tree(tags_element)
+
+    def needed_only(self) -> Union["AXLElement", None]:
+        if self.parent is None:
+            needed_root = AXLElement(self.elem)
+            needed_root.children[:] = [c for c in needed_root.children if c.needed]
+            for child in needed_root.children:
+                child.needed_only()
+            return needed_root
+        elif self.type == Choice:
+            for child in self.children:
+                child.needed_only()
+        else:
+            self.children[:] = [c for c in self.children if c.needed]
+            for child in self.children:
+                child.needed_only()
 
 
 def __get_element_by_name(z_client: Client, element_name: str) -> Element:
@@ -202,6 +337,12 @@ def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> lis
             return [tags_in_tree(tags_tree, tags)]
     else:
         return tags
+
+
+def validate_soap_arguments(z_client: Client, element_name: str, **kwargs) -> bool:
+    elem = __get_element_by_name(z_client, element_name)
+    tree = AXLElement(elem)
+    tree_required = tree.needed_only()
 
 
 def print_element_layout(z_client: Client, element_name: str) -> None:
