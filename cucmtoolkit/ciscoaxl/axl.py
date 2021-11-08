@@ -2402,6 +2402,7 @@ class axl(object):
         )
 
     @serialize
+    @operation_tag("getPhone")
     def get_phone(self, **args):
         """
         Get device profile parameters
