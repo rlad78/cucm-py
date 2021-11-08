@@ -1,4 +1,3 @@
-from logging import root
 from typing import Union
 from zeep import Client
 from zeep.xsd.elements.element import Element
