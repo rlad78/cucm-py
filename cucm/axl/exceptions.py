@@ -85,20 +85,28 @@ class WSDLInvalidArgument(Exception):
 
 
 class WSDLMissingArguments(Exception):
-    def __init__(
-        self, arguments: Sequence[str], element_name: str, *args: object
-    ) -> None:
-        self.args = arguments
+    def __init__(self, arguments: Sequence, element_name: str, *args: object) -> None:
+        self.arguments = arguments
         self.element = element_name
         super().__init__(*args)
 
     def __str__(self) -> str:
-        return f"The following arguments are missing from {self.element}: {self.args}"
+        return f"The following arguments are missing from {self.element}: {', '.join(self.arguments)}"
+
+
+def _list_options(options: Sequence) -> str:
+    o_strings: list[str] = []
+    for i, option in enumerate(options):
+        if type(option) == str:
+            o_strings.append(f"{i+1}) '{option}'")
+        elif type(option) == list:
+            o_strings.append(f"{i+1}) " + ", ".join([f"'{o}'" for o in option]))
+    return "\n".join(o_strings)
 
 
 class WSDLChoiceException(WSDLMissingArguments):
     def __str__(self) -> str:
-        return f"For {self.element}, you must choose only ONE of the following: {self.args}"
+        return f"For {self.element}, you must choose only ONE of the following:\n{_list_options(self.arguments)}"
 
 
 class WSDLDrillDownException(WSDLInvalidArgument):

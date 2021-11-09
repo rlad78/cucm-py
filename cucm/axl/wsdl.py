@@ -12,7 +12,9 @@ from cucm.axl.exceptions import (
     DumbProgrammerException,
     TagNotValid,
     WSDLValueOnlyException,
+    _list_options,
 )
+from termcolor import colored
 
 
 class AXLElement:
@@ -81,6 +83,14 @@ class AXLElement:
         else:
             return self.parent._parent_chain() + "." + self.name
 
+    def _parent_chain_required(self) -> bool:
+        if self.parent is None and self.needed:
+            return True
+        elif self.needed:
+            return self.parent._parent_chain_required()
+        else:
+            return False
+
     def children_dict(self, required=False) -> dict:
         c_dict = dict()
         for child in self.children:
@@ -99,15 +109,41 @@ class AXLElement:
                     c_dict[child.name] = ""
         return c_dict
 
-    def print_tree(self, indent=0, show_types=False) -> None:
-        print(
-            f"{'  ' * indent if indent < 2 else ('  |' * (indent - 1)) + '  '}{'┗ ' if indent else ''}",
-            self.name,
-            f"({self.type})" if show_types else "",
-            sep="",
-        )
+    def print_tree(self, indent=0, show_types=False, show_required=False) -> None:
+        branch_str = f"{'  ' * indent if indent < 2 else ('  |' * (indent - 1)) + '  '}{'┗ ' if indent else ''}"
+        name_str = self.name
+        atrib_str = ""
+
+        if show_required and self.needed and self.parent is not None:
+            # branch_str = colored(branch_str, "blue")
+            if self._parent_chain_required():
+                name_str = colored(self.name, "cyan")
+                atrib_str += colored(" (required)", "blue")
+            else:
+                atrib_str += colored(" (required if parent is used)", "yellow")
+        if (
+            show_types
+            and self.type not in (Sequence, Choice)
+            and self.parent is not None
+        ):
+            atrib_str += colored(f" ({type(self.type).__name__})", "green")
+
+        # print(
+        #     f"{'  ' * indent if indent < 2 else ('  |' * (indent - 1)) + '  '}{'┗ ' if indent else ''}",
+        #     colored(self.name, "blue")
+        #     if (show_required and self.needed and self.parent is not None)
+        #     else self.name,
+        #     f"({self.type})" if show_types else "",
+        #     colored(f"{' (required)' if self.needed else ''}", "blue")
+        #     if (show_required and self.parent is not None)
+        #     else "",
+        #     sep="",
+        # )
+
+        print(branch_str, name_str, atrib_str, sep="")
+
         for child in self.children:
-            child.print_tree(indent=indent + 1)
+            child.print_tree(indent + 1, show_types, show_required)
 
     def get(self, name: str):
         if not name:
@@ -149,11 +185,15 @@ class AXLElement:
                 if c.name == "[ group ]"
             ]
             elements: list[str] = [
-                c.name for c in self.children if not self.name.startswith("[ ")
+                c.name for c in self.children if not c.name.startswith("[ ")
             ]
-            # ! CONTINUE HERE
-            # ? how do we check for either only one element or only one group?
-
+            g_found = [g for g in groups if any(e in kwargs for e in g)]
+            e_found = [e for e in elements if e in kwargs]
+            if len(g_found) + len(e_found) != 1:
+                raise WSDLChoiceException(
+                    arguments=elements + groups,
+                    element_name=self.parent._parent_chain(),
+                )
         else:
             for name, value in kwargs.items():
                 if type(value) not in (dict, list):  # * normal tag-value pairs
