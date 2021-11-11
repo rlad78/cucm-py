@@ -27,6 +27,7 @@ from zeep.helpers import serialize_object
 from functools import wraps
 from copy import deepcopy
 import inspect
+from termcolor import colored, cprint
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -210,7 +211,13 @@ def check_arguments(element_name: str):
 
 class Axl(object):
     def __init__(
-        self, username: str, password: str, cucm: str, port="8443", version=""
+        self,
+        username: str,
+        password: str,
+        cucm: str,
+        port="8443",
+        version="",
+        verbose=False,
     ):
         """Main object for interfacing with the AXL API
 
@@ -236,6 +243,8 @@ class Axl(object):
         AXLException
             if an issue regarding the AXL API is found
         """
+        if verbose:
+            print(f"Attempting to verify {cucm} is a valid UCM server...")
         try:
             ucm_validation = validate_ucm_server(cucm)
         except (UCMInvalidError, UCMConnectionFailure, UCMNotFoundError) as err:
@@ -249,6 +258,8 @@ class Axl(object):
             cucm_version = version
         else:
             cucm_version = get_ucm_version(cucm, port)
+            if verbose:
+                print(f"Got UCM version number: {cucm_version}")
 
         wsdl_path = cfg.ROOT_DIR / "schema" / cucm_version / "AXLAPI.wsdl"
         if not wsdl_path.parent.is_dir():
@@ -273,6 +284,8 @@ class Axl(object):
         self.cucm_port = port
         self.cucm_version = cucm_version
 
+        if verbose:
+            print("Validating AXL connection with given credentials...")
         try:
             axl_validation = validate_axl_auth(cucm, username, password, port)
         except (AXLInvalidCredentials, AXLConnectionFailure, AXLNotFoundError) as err:
@@ -283,10 +296,15 @@ class Axl(object):
         self.UUID_PATTERN = re.compile(
             r"^[\da-f]{8}-([\da-f]{4}-){3}[\da-f]{12}$", re.IGNORECASE
         )
+
+        if verbose:
+            print(f"Connecting to AXL service at https://{cucm}:{port}/axl/ ...")
         self.client = axl_client.create_service(
             "{http://www.cisco.com/AXLAPIService/}AXLAPIBinding",
             f"https://{cucm}:{port}/axl/",
         )
+        if verbose:
+            print("Connection to AXL service established!\n")
 
     def _line_template(self, pattern: str, route_partition: str) -> dict:
         if not pattern:
@@ -329,12 +347,14 @@ class Axl(object):
 
         Raises
         ------
-        Exception
+        AXLClassException
             when the method name provided isn't valid, or there isn't an associated AXL request (no XSD element)
         """
         method = getattr(self, method_name, None)
         if method is None:
-            raise Exception(f"'{method_name}' is not a valid method of the 'Axl' class")
+            raise AXLClassException(
+                f"'{method_name}' is not a valid method of the 'Axl' class"
+            )
 
         if not hasattr(method, "check"):
             print(
@@ -349,11 +369,13 @@ class Axl(object):
                 signature_str = f"Axl.{method_name}({nl}  {args_str}{nl})"
             print(signature_str)
         elif not hasattr(method, "element_name"):
-            raise Exception(f"'{method_name}' does not have an associated XSD element")
+            raise AXLClassException(
+                f"'{method_name}' does not have an associated XSD element"
+            )
         elif method.check == "tags":
             print(
-                "[NOTE]: The following tree only applies to the 'return_tags' argument, which will determine what data points are returned to you from the API call.",
-                "\nFor instance, giving 'return_tags=[\"description\", \"model\"]' to Axl.get_phone will result in only the 'description' and 'model' fields being returned.",
+                f"{colored('[NOTE]', 'yellow')}: The following tree only applies to the 'return_tags' argument, which will determine what data points are returned to you from the API call.",
+                "\nFor instance, giving 'return_tags=[\"description\", \"model\"]' to Axl.get_phone() will result in only the 'description' and 'model' fields being returned.",
                 "\nSmaller number of return tags can give you performance benefits in AXL API calls, but you may also use 'return_tags=[]' if you wish to receive data for all fields.\n",
                 sep="",
             )

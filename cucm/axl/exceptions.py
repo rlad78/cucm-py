@@ -8,6 +8,10 @@ class _ServerError(Exception):
         super().__init__(*args)
 
 
+class AXLClassException(Exception):
+    pass
+
+
 class URLInvalidError(_ServerError):
     def __str__(self) -> str:
         return f"{self.server} is not a valid URL."
