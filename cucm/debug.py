@@ -1,5 +1,6 @@
 from cucm.axl import Axl, get_credentials
-from cucm.axl.exceptions import AXLClassException, UCMException
+from cucm.axl.exceptions import AXLClassException, UCMException, WSDLException
+from cucm.axl.wsdl import print_element_layout
 import keyring
 import sys, os
 
@@ -48,3 +49,21 @@ def print_axl_tree() -> None:
                 ucm.print_axl_arguments(method)
             except AXLClassException as e:
                 print(f"[ERROR]({method}): {e.__str__}")
+
+
+def print_soap_tree() -> None:
+    if len(sys.argv) < 2:
+        print(
+            "USAGE: poetry run show_tree [AXL_METHOD] [AXL_METHOD_2] [AXL_METHOD_3] ..."
+        )
+    else:
+        for n, element in enumerate(sys.argv[1:]):
+            if n > 0:
+                input("\nPress [enter] to continue or [ctrl + c] to stop.")
+                print("\n", "=" * (os.get_terminal_size().columns - 1), sep="")
+
+            try:
+                print("")  # newline
+                print_element_layout(ucm.zeep, element, show_required=True)
+            except WSDLException as e:
+                print(f"[ERROR]({element}): {e.__str__}")
