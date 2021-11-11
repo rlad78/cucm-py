@@ -2637,42 +2637,65 @@ class Axl(object):
         except Fault as e:
             return e
 
-    def update_phone(self, **args):
+    @check_arguments("updatePhone")
+    def update_phone(
+        self,
+        name: str,
+        description="",
+        css="",
+        device_pool="",
+        button_template="",
+        softkey_template="",
+        owner_user="",
+        digest_user="",
+        *,
+        **kwargs,
+    ):
+        # ? button_template -> phoneTemplateName  |  owner_user -> ownerUserName
+        def filter_empty_kwargs(all_args: dict):
+            args_copy = all_args.copy()
+            for arg, value in all_args.items():
+                if value == "" or arg == "self":
+                    args_copy.pop(arg)
+            return args_copy
 
-        """
-        lines takes a list of Tuples with properties for each line EG:
+        axl_args = filter_empty_kwargs(locals())
+        print(axl_args)
 
-                                               display                           external
-            DN     partition    display        ascii          label               mask
-        [('77777', 'LINE_PT', 'Jim Smith', 'Jim Smith', 'Jim Smith - 77777', '0294127777')]
-        Add A phone
-        :param name:
-        :param description:
-        :param product:
-        :param device_pool:
-        :param location:
-        :param phone_template:
-        :param common_device_config:
-        :param css:
-        :param aar_css:
-        :param subscribe_css:
-        :param lines:
-        :param dev_class:
-        :param protocol:
-        :param softkey_template:
-        :param enable_em:
-        :param em_service_name:
-        :param em_service_url:
-        :param em_url_button_enable:
-        :param em_url_button_index:
-        :param em_url_label:
-        :param ehook_enable:
-        :return:
-        """
+        if "name" not in axl_args:
+            raise AXLException("'name' value can not be empty!")
+
         try:
-            return self.client.updatePhone(**args)
+            return self.client.updatePhone(**axl_args)
         except Fault as e:
             return e
+
+    def add_phone_line(self):
+        pass
+
+    def remove_phone_line(self, pattern="", index=0, swallow=False):
+        pass
+
+    def change_phone_line(self):
+        pass
+
+    def add_phone_speeddials(self):
+        pass
+
+    def remove_phone_speeddials(self, pattern="", index=0, swallow=False):
+        pass
+
+    def change_phone_speeddials(self):
+        pass
+
+    def add_phone_blf(self):
+        pass
+
+    def remove_phone_blf(self, pattern="", route_partition="", index=0, swallow=False):
+        pass
+
+    def change_phone_blf(self):
+        pass
 
     def get_device_profiles(
         self,
