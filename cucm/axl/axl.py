@@ -288,13 +288,44 @@ class Axl(object):
             f"https://{cucm}:{port}/axl/",
         )
 
-    def print_axl_arguments(self, method_name: str) -> None:
-        """Prints the full argument list for the AXL request associated with a method. Use this on methods that require you to know category names for things like update operations and queries.
+    def _line_template(self, pattern: str, route_partition: str) -> dict:
+        if not pattern:
+            raise ValueError("'pattern' cannot be blank")
+        elif not route_partition:
+            raise ValueError("'route_partition' cannot be blank")
+
+        dn_exists_check = self.get_directory_number(
+            pattern, route_partition, return_tags=["pattern", "routePartitionName"]
+        )
+        if issubclass(type(dn_exists_check), Fault):
+            if (
+                not "Line" in dn_exists_check.message
+                or route_partition not in dn_exists_check.message
+            ):
+                raise WSDLException(dn_exists_check.message)
+            else:
+                pass  # * make new "line" element
+        else:
+            return {
+                "lineIdentifier": {
+                    "directoryNumber": pattern,
+                    "routePartitionName": route_partition,
+                }
+            }
+
+    def print_axl_arguments(
+        self, method_name: str, show_required_only=False, show_member_types=False
+    ) -> None:
+        """Prints out a tree of all available kwargs that can be supplied to a given method of this Axl class.
 
         Parameters
         ----------
         method_name : str
-            The name of the method you wish to investigate. Do not include parenthesis () or prefix with 'axl.'
+            A method (i.e. "get_phones") that is part of the Axl class
+        show_required_members : bool, optional
+            Option to only show which members are required for this method's API request, by default False
+        show_member_types : bool, optional
+            Option to show the accepted type for each member, by default False
 
         Raises
         ------
@@ -303,12 +334,47 @@ class Axl(object):
         """
         method = getattr(self, method_name, None)
         if method is None:
-            raise Exception(f"'{method_name}' is not a valid method of the 'axl' class")
+            raise Exception(f"'{method_name}' is not a valid method of the 'Axl' class")
 
-        if not hasattr(method, "element_name"):
+        if not hasattr(method, "check"):
+            print(
+                f"This method uses a standard argument format with other logic that makes the AXL API call for you. Please use the standard method arguments of:",
+            )
+            signature_str = f"Axl.{method_name}{inspect.signature(method)}"
+            if len(signature_str) > 80:
+                nl = "\n"  # ? had to write this due to f-string limitation
+                args_str = ",\n  ".join(
+                    [str(x) for x in inspect.signature(method).parameters.values()]
+                )
+                signature_str = f"Axl.{method_name}({nl}  {args_str}{nl})"
+            print(signature_str)
+        elif not hasattr(method, "element_name"):
             raise Exception(f"'{method_name}' does not have an associated XSD element")
-
-        print_element_layout(self.zeep, method.element_name)
+        elif method.check == "tags":
+            print(
+                "[NOTE]: The following tree only applies to the 'return_tags' argument, which will determine what data points are returned to you from the API call.",
+                "\nFor instance, giving 'return_tags=[\"description\", \"model\"]' to Axl.get_phone will result in only the 'description' and 'model' fields being returned.",
+                "\nSmaller number of return tags can give you performance benefits in AXL API calls, but you may also use 'return_tags=[]' if you wish to receive data for all fields.\n",
+                sep="",
+            )
+            print_return_tags_layout(
+                self.zeep,
+                method.element_name,
+                show_required=True,
+                show_types=show_member_types,
+            )
+        elif method.check == "args":
+            if show_required_only:
+                print_required_element_layout(
+                    self.zeep, method.element_name, show_types=show_member_types
+                )
+            else:
+                print_element_layout(
+                    self.zeep,
+                    method.element_name,
+                    show_required=True,
+                    show_types=show_member_types,
+                )
 
     @serialize_list
     @check_tags(element_name="listLocation")
