@@ -10,6 +10,9 @@ from cucm.axl.wsdl import (
     get_return_tags,
     fix_return_tags,
     print_element_layout,
+    print_required_element_layout,
+    print_return_tags_layout,
+    validate_arguments,
 )
 import cucm.axl.configs as cfg
 import re
@@ -22,8 +25,8 @@ from zeep.cache import SqliteCache
 from zeep.exceptions import Fault
 from zeep.helpers import serialize_object
 from functools import wraps
-import inspect
 from copy import deepcopy
+import inspect
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -168,6 +171,7 @@ def check_tags(element_name: str):
                 return func(*args, **kwargs)
 
         wrapper.element_name = element_name
+        wrapper.check = "tags"
         return wrapper
 
     return check_tags_decorator
