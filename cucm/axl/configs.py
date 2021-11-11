@@ -10,6 +10,7 @@ DUMMY_KEY: str = "xlGoVnofkKjNSgnwA9Z7"
 
 DISABLE_SERIALIZER = False
 DISABLE_CHECK_TAGS = False
+DISABLE_CHECK_ARGS = False
 
 
 def turn_off_serializer() -> None:
@@ -20,3 +21,8 @@ def turn_off_serializer() -> None:
 def turn_off_tags_checker() -> None:
     global DISABLE_CHECK_TAGS
     DISABLE_CHECK_TAGS = True
+
+
+def turn_off_args_checker() -> None:
+    global DISABLE_CHECK_ARGS
+    DISABLE_CHECK_ARGS = True

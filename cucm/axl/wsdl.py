@@ -145,16 +145,19 @@ class AXLElement:
         for child in self.children:
             child.print_tree(indent + 1, show_types, show_required)
 
-    def get(self, name: str):
+    def get(self, name: str) -> Union["AXLElement", None]:
         if not name:
             return None
         for child in self.children:
             if getattr(child, "name", None) == name:
                 return child
+            elif child.type == Choice or child.type == Sequence:
+                if (finding := child.get(name)) is not None:
+                    return finding
         else:
             return None
 
-    def find(self, name: str):
+    def find(self, name: str) -> Union["AXLElement", None]:
         if not name:
             return None
 
@@ -167,7 +170,7 @@ class AXLElement:
         else:
             return None
 
-    def validate(self, **kwargs) -> None:
+    def validate(self, *args, **kwargs) -> None:
         def choice_peek(choice: AXLElement) -> list[str]:
             peek_names: list[str] = []
             for child in choice.children:
@@ -176,6 +179,11 @@ class AXLElement:
                 elif child.type == Sequence:
                     peek_names.extend([c.name for c in child.children])
             return peek_names
+
+        if args:
+            raise WSDLException(
+                f"A non-named argument was supplied for {self.name} with the value {args[0]}. Arguments for AXL API requests must all be named (kwargs)."
+            )
 
         c_dict = self.children_dict(required=True)
         if self.type == Choice:
@@ -283,6 +291,27 @@ class AXLElement:
             for child in self.children:
                 child.needed_only()
 
+    def branch_needed_only(self, root=None) -> Union["AXLElement", bool]:
+        if root is None:
+            needed_root = AXLElement(self.elem)
+            needed_root.children[:] = [
+                c
+                for c in needed_root.children
+                if c.branch_needed_only(root=needed_root)
+            ]
+            return needed_root
+        elif (
+            self.type == Choice
+            or self.type == Sequence
+            or (self.children and self.needed)
+        ):
+            self.children[:] = [
+                c for c in self.children if c.branch_needed_only(root=root)
+            ]
+            return bool(self.children)
+        else:
+            return self.needed
+
 
 def __get_element_by_name(z_client: Client, element_name: str) -> Element:
     try:
@@ -385,17 +414,32 @@ def validate_soap_arguments(z_client: Client, element_name: str, **kwargs) -> bo
     tree_required = tree.needed_only()
 
 
-def print_element_layout(z_client: Client, element_name: str) -> None:
-    def print_element(elem: AXLElement, indent=0) -> None:
-        if elem.name == "_value_1":
-            return None
-
-        print(
-            f"{'|  ' * indent}{elem}{' (required)' if elem.required and elem.parent is not None else ''}{':' if elem.children and elem.children[0].name != '_value_1' else ''}"
-        )
-        for child in elem.children:
-            print_element(child, indent + 1)
-
+def print_element_layout(
+    z_client: Client, element_name: str, show_required=False, show_types=False
+) -> None:
     root: AXLElement = AXLElement(__get_element_by_name(z_client, element_name))
-    for child in root.children:
-        print_element(child)
+    root.print_tree(show_required=show_required, show_types=show_types)
+
+
+def print_required_element_layout(
+    z_client: Client, element_name: str, show_types=False
+) -> None:
+    root: AXLElement = AXLElement(__get_element_by_name(z_client, element_name))
+    root.needed_only().print_tree(show_types=show_types, show_required=True)
+
+
+def print_return_tags_layout(
+    z_client: Client, element_name: str, show_required=False, show_types=False
+) -> None:
+    root: AXLElement = AXLElement(__get_element_by_name(z_client, element_name))
+    if (r_tags := root.find("returnedTags")) is None:
+        raise WSDLException(
+            f"'returnedTags' element cannot be found within '{element_name}'"
+        )
+    else:
+        r_tags.print_tree(show_types=show_types, show_required=show_required)
+
+
+def validate_arguments(z_client: Client, element_name: str, **kwargs) -> None:
+    root: AXLElement = AXLElement(__get_element_by_name(z_client, element_name))
+    root.validate(**kwargs)

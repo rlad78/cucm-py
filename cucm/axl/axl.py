@@ -185,13 +185,26 @@ def operation_tag(element_name: str):
     return operation_tag_decorator
 
 
-class Axl(object):
-    """
-    The AXL class sets up the connection to the call manager with methods for configuring UCM.
-    Tested with environment of;
-    Python 3.6
-    """
+def check_arguments(element_name: str):
+    def check_argument_deorator(func: TCallable) -> TCallable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if cfg.DISABLE_CHECK_ARGS:
+                return func(*args, **kwargs)
 
+            # get non-default kwargs
+            default_kwargs = list(inspect.signature(func).parameters)
+            user_kwargs = {k: v for k, v in kwargs.items() if k not in default_kwargs}
+            validate_arguments(args[0].zeep, element_name, **user_kwargs)
+
+        wrapper.element_name = element_name
+        wrapper.check = "args"
+        return wrapper
+
+    return check_argument_deorator
+
+
+class Axl(object):
     def __init__(
         self, username: str, password: str, cucm: str, port="8443", version=""
     ):
@@ -500,31 +513,18 @@ class Axl(object):
             return e
 
     # ? no idea what this does
-    @operation_tag("doDeviceLogin")
-    def do_device_login(self, **args):
-        """
-        Do Device Login
-        :param deviceName:
-        :param userId:
-        :param profileName:
-        :return: result dictionary
-        """
+    @check_arguments("doDeviceLogin")
+    def do_device_login(self, **kwargs):
         try:
-            return self.client.doDeviceLogin(**args)
+            return self.client.doDeviceLogin(**kwargs)
         except Fault as e:
             return e
 
     # ? no idea what this does
-    @operation_tag("doDeviceLogout")
-    def do_device_logout(self, **args):
-        """
-        Do Device Logout
-        :param device:
-        :param userId:
-        :return: result dictionary
-        """
+    @check_arguments("doDeviceLogout")
+    def do_device_logout(self, **kwargs):
         try:
-            return self.client.doDeviceLogout(**args)
+            return self.client.doDeviceLogout(**kwargs)
         except Fault as e:
             return e
 
@@ -712,20 +712,10 @@ class Axl(object):
             return None
 
     # ! gonna need help with this one too
-    def update_location(self, **args):
-        """
-        Update a Location
-        :param name:
-        :param uuid:
-        :param newName:
-        :param withinAudioBandwidth:
-        :param withinVideoBandwidth:
-        :param withImmersiveKbits:
-        :param betweenLocations:
-        :return:
-        """
+    @check_arguments("updateLocation")
+    def update_location(self, **kwargs):
         try:
-            return self.client.updateLocation(**args)
+            return self.client.updateLocation(**kwargs)
         except Fault as e:
             return e
 
