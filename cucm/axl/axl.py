@@ -14,6 +14,7 @@ from cucm.axl.wsdl import (
     print_return_tags_layout,
     validate_arguments,
 )
+from cucm.axl.utils import print_signature
 import cucm.axl.configs as cfg
 import re
 import urllib3
@@ -360,14 +361,7 @@ class Axl(object):
             print(
                 f"This method uses a standard argument format with other logic that makes the AXL API call for you. Please use the standard method arguments of:",
             )
-            signature_str = f"Axl.{method_name}{inspect.signature(method)}"
-            if len(signature_str) > 80:
-                nl = "\n"  # ? had to write this due to f-string limitation
-                args_str = ",\n  ".join(
-                    [str(x) for x in inspect.signature(method).parameters.values()]
-                )
-                signature_str = f"Axl.{method_name}({nl}  {args_str}{nl})"
-            print(signature_str)
+            print_signature(method, "Axl")
         elif not hasattr(method, "element_name"):
             raise AXLClassException(
                 f"'{method_name}' does not have an associated XSD element"
