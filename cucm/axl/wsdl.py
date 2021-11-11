@@ -114,13 +114,23 @@ class AXLElement:
         name_str = self.name
         atrib_str = ""
 
+        if self.type == Choice:
+            name_str = colored(self.name, "green")
+            atrib_str += (
+                "(choose only one " + colored("child", "magenta", attrs=["bold"]) + ")"
+            )
+
         if show_required and self.needed and self.parent is not None:
-            # branch_str = colored(branch_str, "blue")
             if self._parent_chain_required():
-                name_str = colored(self.name, "cyan")
+                if self.type not in (Sequence, Choice):
+                    name_str = colored(self.name, "cyan")
                 atrib_str += colored(" (required)", "blue")
             else:
                 atrib_str += colored(" (required if parent is used)", "yellow")
+        elif self.parent is not None and self.parent.type == Choice:
+            name_str = colored(self.name, "magenta")
+            # atrib_str += colored(" (must choose only one)", "magenta")
+
         if (
             show_types
             and self.type not in (Sequence, Choice)
