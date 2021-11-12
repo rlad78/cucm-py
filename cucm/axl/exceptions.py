@@ -1,6 +1,8 @@
 from typing import Sequence
 import json
 
+from zeep.exceptions import Fault
+
 
 class _ServerError(Exception):
     def __init__(self, server: str, *args: object) -> None:
@@ -72,6 +74,21 @@ class AXLException(UCMException):
             return "An unknown issue occured when trying to connect to the AXL API."
         else:
             return f"An error occured when trying to connect to the AXL API: {self.err}"
+
+
+class AXLFault(Exception):
+    """Exception that handles Zeep Fault exceptions so users don't have to import Fault from Zeep."""
+
+    def __init__(self, zeep_fault: Fault, *args: object) -> None:
+        self.message = zeep_fault.message
+        self.subcodes = zeep_fault.subcodes
+        self.actor = zeep_fault.actor
+        self.code = zeep_fault.code
+        self.detail = zeep_fault.detail
+        super().__init__(*args)
+
+    def __str__(self) -> str:
+        return self.message
 
 
 class WSDLException(Exception):

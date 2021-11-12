@@ -33,18 +33,6 @@ from termcolor import colored, cprint
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-
-# For use with decorators listed below. Helps supply correct params in Pylance, Intellisense, etc.
-# Reference: https://github.com/microsoft/pyright/issues/774#issuecomment-755769085
-# _sP = ParamSpec("_sP")
-# _sR = TypeVar("_sR")
-
-# _slP = ParamSpec("_slP")
-# _slR = TypeVar("_slR")
-
-# _ctP = ParamSpec("_ctP")
-# _ctR = TypeVar("_ctR")
-
 TCallable = TypeVar("TCallable", bound=Callable)
 
 
@@ -58,7 +46,7 @@ def serialize(func: TCallable) -> TCallable:
         if r_value is None:
             return dict()
         elif issubclass(type(r_value), Exception):
-            return r_value
+            raise AXLFault(r_value)
         elif (
             "return_tags" not in kwargs
             and (
@@ -202,6 +190,7 @@ def check_arguments(element_name: str):
             default_kwargs = list(inspect.signature(func).parameters)
             user_kwargs = {k: v for k, v in kwargs.items() if k not in default_kwargs}
             validate_arguments(args[0].zeep, element_name, **user_kwargs)
+            return func(*args, **kwargs)
 
         wrapper.element_name = element_name
         wrapper.check = "args"
