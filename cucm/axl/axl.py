@@ -2648,7 +2648,6 @@ class Axl(object):
         softkey_template="",
         owner_user="",
         digest_user="",
-        *,
         **kwargs,
     ):
         # ? button_template -> phoneTemplateName  |  owner_user -> ownerUserName
