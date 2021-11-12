@@ -3,6 +3,17 @@ from typing import Callable
 from termcolor import colored
 
 
+class _StaticIdentity:
+    def __init__(self, value: str) -> None:
+        self.__value__ = value
+
+    def __repr__(self) -> str:
+        return self.__value__
+
+
+Empty = _StaticIdentity("Empty")
+
+
 def print_signature(func: Callable, parent_class="") -> None:
     """Prints a "pretty" color-coded version of a given function's signature.
 

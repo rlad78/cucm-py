@@ -14,7 +14,7 @@ from cucm.axl.wsdl import (
     print_return_tags_layout,
     validate_arguments,
 )
-from cucm.axl.utils import print_signature
+from cucm.utils import print_signature, Empty
 import cucm.axl.configs as cfg
 import re
 import urllib3
@@ -28,7 +28,7 @@ from zeep.helpers import serialize_object
 from functools import wraps
 from copy import deepcopy
 import inspect
-from termcolor import colored, cprint
+from termcolor import colored
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -2654,6 +2654,11 @@ class Axl(object):
         if "name" not in axl_args:
             raise AXLException("'name' value can not be empty!")
 
+        if (
+            user := axl_args.get("ownerUserName", None)
+        ) is not None and user.lower() == "anonymous":
+            axl_args["ownerUserName"] = ""
+
         try:
             return self.client.updatePhone(**axl_args)
         except Fault as e:
@@ -3681,11 +3686,14 @@ def _chunk_data(axl_request: Callable, data_label: str, **kwargs) -> Union[list,
     return data
 
 
-def filter_empty_kwargs(all_args: dict, arg_renames: dict = {}):
+def filter_empty_kwargs(all_args: dict, arg_renames: dict = {}) -> dict:
     args_copy = all_args.copy()
     for arg, value in all_args.items():
         if value == "" or arg in ("self", "args", "kwargs"):
             args_copy.pop(arg)
         elif arg in arg_renames:
             args_copy[arg_renames[arg]] = args_copy.pop(arg)
+
+        if value == Empty:
+            args_copy[arg] = ""
     return args_copy
