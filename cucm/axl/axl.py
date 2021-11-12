@@ -2650,16 +2650,17 @@ class Axl(object):
         digest_user="",
         **kwargs,
     ):
-        # ? button_template -> phoneTemplateName  |  owner_user -> ownerUserName
-        def filter_empty_kwargs(all_args: dict):
-            args_copy = all_args.copy()
-            for arg, value in all_args.items():
-                if value == "" or arg == "self":
-                    args_copy.pop(arg)
-            return args_copy
-
-        axl_args = filter_empty_kwargs(locals())
-        print(axl_args)
+        axl_args = filter_empty_kwargs(
+            locals(),
+            {
+                "css": "callingSearchSpaceName",
+                "device_pool": "devicePoolName",
+                "button_template": "phoneTemplateName",
+                "softkey_template": "softkeyTemplateName",
+                "owner_user": "ownerUserName",
+                "digest_user": "digestUser",
+            },
+        )
 
         if "name" not in axl_args:
             raise AXLException("'name' value can not be empty!")
@@ -3689,3 +3690,13 @@ def _chunk_data(axl_request: Callable, data_label: str, **kwargs) -> Union[list,
             data.extend(recv[data_label])
             skip += 1000
     return data
+
+
+def filter_empty_kwargs(all_args: dict, arg_renames: dict = {}):
+    args_copy = all_args.copy()
+    for arg, value in all_args.items():
+        if value == "" or arg in ("self", "args", "kwargs"):
+            args_copy.pop(arg)
+        elif arg in arg_renames:
+            args_copy[arg_renames[arg]] = args_copy.pop(arg)
+    return args_copy

@@ -451,5 +451,7 @@ def print_return_tags_layout(
 
 
 def validate_arguments(z_client: Client, element_name: str, **kwargs) -> None:
+    if not kwargs:
+        return None
     root: AXLElement = AXLElement(__get_element_by_name(z_client, element_name))
     root.validate(**kwargs)
