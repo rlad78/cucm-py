@@ -1,5 +1,4 @@
-from typing import Callable, TypeVar, Union, overload
-from typing_extensions import ParamSpec
+from typing import Callable, TypeVar, Union
 from cucm.axl.validation import (
     validate_ucm_server,
     validate_axl_auth,
