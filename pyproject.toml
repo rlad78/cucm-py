@@ -27,6 +27,7 @@ xmlschema = "^1.7.1"
 test_connect = "cucm.debug:axl_connect"
 show_tree = "cucm.debug:print_axl_tree"
 show_soap_tree = "cucm.debug:print_soap_tree"
+clear_pass = "cucm.debug:clear_url_and_port"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
