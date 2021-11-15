@@ -236,9 +236,14 @@ class Axl(object):
         if verbose:
             print(f"Attempting to verify {cucm} is a valid UCM server...")
         try:
-            ucm_validation = validate_ucm_server(cucm)
-        except (UCMInvalidError, UCMConnectionFailure, UCMNotFoundError) as err:
-            raise UCMException(err)
+            ucm_validation = validate_ucm_server(cucm, port)
+        except (
+            URLInvalidError,
+            UCMInvalidError,
+            UCMConnectionFailure,
+            UCMNotFoundError,
+        ) as err:
+            raise err  # ? not sure if we still need this...
         if not ucm_validation:
             raise UCMException(
                 f"Could not connect to {cucm}, please check your server."
@@ -279,7 +284,7 @@ class Axl(object):
         try:
             axl_validation = validate_axl_auth(cucm, username, password, port)
         except (AXLInvalidCredentials, AXLConnectionFailure, AXLNotFoundError) as err:
-            raise AXLException(err)
+            raise err  # ? again, do we really need this?
         if not axl_validation:
             raise AXLException()
 
