@@ -57,3 +57,13 @@ class TestAPI:
             self.ucm.get_phone(
                 name="BOTRCARTE4", return_tags=["notRealTag", "description"]
             )
+
+    def test_default_tags(self):
+        result = self.ucm.get_ldap_dir()
+        assert result[0]["name"] == "cuid"
+        assert result[0].get("scheduleUnit", None) is None
+
+    def test_all_return_tags(self):
+        result = self.ucm.get_ldap_dir(return_tags=[])
+        assert result[0]["name"] == "cuid"
+        assert result[0].get("scheduleUnit", None) == "DAY"
