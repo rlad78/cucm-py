@@ -820,15 +820,18 @@ class Axl(object):
 
     @serialize
     @check_tags("getRegion")
-    def get_region(self, name: str, return_tags=["name", "relatedRegions"]):
+    def get_region(self, name: str, *, return_tags=["name", "relatedRegions"]):
         """
         Get region information
         :param name: Region name
         :return: result dictionary
         """
-        tags = _tag_handler(return_tags)
+        tags = _tag_handler(
+            return_tags
+        )  # TODO: figure out why relatedRegion isn't expanded from @check_tags
+        print(tags)
         try:
-            return self.client.getRegion(name=name, return_tags=tags)
+            return self.client.getRegion(name=name, returnedTags=tags)
         except Fault as e:
             return e
 
