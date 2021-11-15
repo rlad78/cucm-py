@@ -142,20 +142,16 @@ def check_tags(element_name: str):
             elif type(kwargs["return_tags"]) == list:
                 # supply all legal tags if an empty list is provided
                 if len(kwargs["return_tags"]) == 0:
-                    kwargs["return_tags"] = (
-                        fix_return_tags(
-                            z_client=args[0].zeep,
-                            element_name=element_name,
-                            tags=get_return_tags(args[0].zeep, element_name),
-                        ),
+                    kwargs["return_tags"] = fix_return_tags(
+                        z_client=args[0].zeep,
+                        element_name=element_name,
+                        tags=get_return_tags(args[0].zeep, element_name),
                     )
                 else:
-                    kwargs["return_tags"] = (
-                        fix_return_tags(
-                            z_client=args[0].zeep,
-                            element_name=element_name,
-                            tags=kwargs["return_tags"],
-                        ),
+                    kwargs["return_tags"] = fix_return_tags(
+                        z_client=args[0].zeep,
+                        element_name=element_name,
+                        tags=kwargs["return_tags"],
                     )
                 return func(*args, **kwargs)
 
