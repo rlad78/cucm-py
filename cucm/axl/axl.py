@@ -544,11 +544,12 @@ class Axl(object):
         Fault
             The error returned from AXL, if one occured
         """
+        tags = _tag_handler(return_tags)
+
         try:
-            return self.client.listLdapDirectory(
-                {"name": "%"},
-                returnedTags={k: "" for k in return_tags},
-            )["return"]["ldapDirectory"]
+            return self.client.listLdapDirectory({"name": "%"}, returnedTags=tags)[
+                "return"
+            ]["ldapDirectory"]
         except Fault as e:
             return e
 
