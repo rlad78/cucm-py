@@ -131,12 +131,10 @@ def check_tags(element_name: str):
             elif "return_tags" not in kwargs:
                 # tags are default
                 if len(tags_param.default) == 0:
-                    kwargs["return_tags"] = (
-                        fix_return_tags(
-                            z_client=args[0].zeep,
-                            element_name=element_name,
-                            tags=get_return_tags(args[0].zeep, element_name),
-                        ),
+                    kwargs["return_tags"] = fix_return_tags(
+                        z_client=args[0].zeep,
+                        element_name=element_name,
+                        tags=get_return_tags(args[0].zeep, element_name),
                     )
                 return func(*args, **kwargs)
             elif type(kwargs["return_tags"]) == list:
@@ -795,27 +793,42 @@ class Axl(object):
         except Fault as e:
             return e
 
-    def get_regions(self, tagfilter={"uuid": "", "name": ""}):
+    @serialize_list
+    @check_tags("listRegion")
+    def get_regions(self, *, return_tags=[]) -> Union[list[dict], Fault]:
+        """Gets a list of all regions on the current cluster. Note that the data that AXL will respond with is limited. Please used get_region() for a specific region if you wish to see more details.
+
+        Parameters
+        ----------
+        return_tags : list, optional
+            The categories to be returned, by default, []. If an empty list is provided, all categories will be returned.
+
+        Returns
+        -------
+        list[dict]
+            list of all regions found
+        Fault
+            the error returned by AXL upon a failed request
         """
-        Get region details
-        :param mini: return a list of tuples of region details
-        :return: A list of dictionary's
-        """
+        tags = _tag_handler(return_tags)
         try:
-            return self.client.listRegion({"name": "%"}, returnedTags=tagfilter)[
-                "return"
-            ]["region"]
+            return self.client.listRegion(
+                searchCriteria={"name": "%"}, returnedTags=tags
+            )["return"]["region"]
         except Fault as e:
             return e
 
-    def get_region(self, **args):
+    @serialize
+    @check_tags("getRegion")
+    def get_region(self, name: str, return_tags=["name", "relatedRegions"]):
         """
         Get region information
         :param name: Region name
         :return: result dictionary
         """
+        tags = _tag_handler(return_tags)
         try:
-            return self.client.getRegion(**args)
+            return self.client.getRegion(name=name, return_tags=tags)
         except Fault as e:
             return e
 
