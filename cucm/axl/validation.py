@@ -1,90 +1,10 @@
-from typing import Tuple
 from cucm.axl.exceptions import *
 from cucm.axl.configs import ROOT_DIR, CUCM_LATEST_VERSION
-import requests
+from cucm.connection import *
 import xml.etree.ElementTree as ET
-from requests.adapters import (
-    HTTPAdapter,
-    ConnectTimeout,
-    ConnectionError,
-    MaxRetryError,
-)
-from requests.auth import HTTPBasicAuth
-from urllib.parse import urlparse
-from urllib3.util.retry import Retry
-import tldextract
 import validators
 from bs4 import BeautifulSoup
 from pathlib import Path
-
-
-def _session() -> requests.Session:
-    s = requests.Session()
-    s.headers = "Mozilla/5.0 (X11; CrOS x86_64 12871.102.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.141 Safari/537.36"
-    retry_strat = Retry(
-        read=3,
-        connect=3,
-        status=3,
-        # other=3,
-        total=5,
-        backoff_factor=0.1,
-    )
-    s.mount("http://", HTTPAdapter(max_retries=retry_strat))
-    return s
-
-
-def _session_auth(username: str, password: str) -> requests.Session:
-    s = _session()
-    s.auth = HTTPBasicAuth(username, password)
-    return s
-
-
-def _generate_proper_url(url: str, port="0") -> str:
-    if not url.startswith("http://") and not url.startswith("https://"):
-        url = "https://" + url
-
-    url_parts = urlparse(url)
-    scheme = url_parts.scheme
-    netloc = url_parts.netloc
-    urlpath = url_parts.path
-
-    # subdomain, domain, suffix = tldextract(url)
-    if port == "0":
-        return f"{scheme}://{netloc}{urlpath}"
-    else:
-        return f"{scheme}://{netloc}:{port}{urlpath}"
-
-
-def _get_base_url(url: str) -> str:
-    return ".".join(tldextract.extract(_generate_proper_url(url)))
-
-
-def get_url_status_code(url: str, username="", password="", timeout=10) -> int:
-    """Returns HTTP status code of request with HTTP basic auth
-
-    Args:
-        url (str): Address to send request to
-        username (str, optional): HTTP auth username. Defaults to "".
-        password (str, optional): HTTP auth password. Defaults to "".
-        timeout (int, optional): Time until request gives up. Defaults to 10.
-
-    Returns:
-        int: If cannot connect, returns -1.
-            If timeout occurs, returns 0.
-            Otherwise, returns request's HTTP status code
-    """
-    if any((username, password)):
-        sesh = _session_auth(username, password)
-    else:
-        sesh = _session()
-
-    try:
-        with sesh as s:
-            return s.get(url, stream=True, timeout=timeout).status_code
-    except (ConnectionError, MaxRetryError, TimeoutError):
-        return -1
-    except ConnectTimeout:
-        return 0
 
 
 def validate_ucm_server(url: str, port="8443") -> bool:
@@ -104,13 +24,13 @@ def validate_ucm_server(url: str, port="8443") -> bool:
     Returns:
         bool: True if connected to valid UCM server, False otherwise
     """
-    fullurl = _generate_proper_url(url, port)
+    fullurl = generate_proper_url(url, port)
     if not validators.url(fullurl):
         raise URLInvalidError(fullurl)
 
     status = get_url_status_code(fullurl, timeout=10)
     if status == 200:
-        with _session() as s:
+        with session_standard() as s:
             if not BeautifulSoup(s.get(fullurl, timeout=10).text, "html.parser").find(
                 string="Cisco Unified Communications Manager"
             ):
@@ -143,7 +63,7 @@ def validate_axl_auth(ucm: str, username: str, password: str, port="8443") -> bo
     Returns:
         bool: True if AXL is reachable, False otherwise.
     """
-    fullurl: str = _generate_proper_url(ucm, port)
+    fullurl: str = generate_proper_url(ucm, port)
     if not all((username, password)):
         return False
 
@@ -200,7 +120,7 @@ def get_ucm_version(ucm_url: str, port="8443") -> str:
     UCMVersionError
         if the version found is not supported by cucm-py
     """
-    url = _generate_proper_url(ucm_url, port)
+    url = generate_proper_url(ucm_url, port)
     if url.endswith("/"):
         url = url[:-1]
     url += "/cucm-uds/version"
