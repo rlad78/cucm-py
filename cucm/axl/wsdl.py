@@ -155,9 +155,9 @@ class AXLElement:
         for child in self.children:
             child.print_tree(indent + 1, show_types, show_required)
 
-    def get(self, name: str) -> Union["AXLElement", None]:
+    def get(self, name: str, default=None) -> Union["AXLElement", None]:
         if not name:
-            return None
+            return default
         for child in self.children:
             if getattr(child, "name", None) == name:
                 return child
@@ -165,7 +165,7 @@ class AXLElement:
                 if (finding := child.get(name)) is not None:
                     return finding
         else:
-            return None
+            return default
 
     def find(self, name: str) -> Union["AXLElement", None]:
         if not name:
@@ -274,6 +274,8 @@ class AXLElement:
                 return Nil
             elif element.type == Choice:
                 return get_element_tree(element.children[0])
+            elif element.type == Sequence:
+                return {c.name: get_element_tree(c) for c in element.children}
             else:
                 # return {e.name: get_element_tree(e) for e in element.children}
                 tree_dict: dict = dict()
@@ -285,6 +287,23 @@ class AXLElement:
                 return tree_dict
 
         return get_element_tree(tags_element)
+
+    def to_dict(self) -> dict:
+        if not self.children:
+            return {self.name: Nil}
+        elif self.type == Choice:
+            return self.children[0].to_dict()
+        elif self.type == Sequence:
+            seq_dict: dict = dict()
+            for child in self.children:
+                seq_dict.update(child.to_dict())
+            return seq_dict
+        else:
+            children_dict: dict = dict()
+            for child in self.children:
+                children_dict.update(child.to_dict())
+            return {self.name: children_dict}
+
 
     def needed_only(self) -> Union["AXLElement", None]:
         if self.parent is None:
@@ -407,15 +426,25 @@ def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> lis
     #         f"Making element tree for '{element_name}' reuslted in nothing"
     #     )
 
+    tags_tree = AXLElement(__get_element_by_name(z_client, element_name)).get("returnedTags", None)
+    if tags_tree is None:
+        raise WSDLException(f"Element '{element_name}' has no returnedTags sub-element")
+
+    tags_dict = tags_tree.to_dict()["returnedTags"]
+        
+    for tag in tags:
+        if tags_dict.get(tag, None) != Nil:  # complex tag, replace tag list with dict
+            return [tags_in_tree(tags_dict, tags)]
+    else:
+        return tags
+
+
+def fix_return_tags_2(z_client: Client, element_name: str, tags: list[str]) -> list:
     tags_tree = AXLElement(__get_element_by_name(z_client, element_name)).return_tags()
     if not tags_tree:
         raise WSDLException(f"Element '{element_name}' has no returnedTags sub-element")
 
-    for tag in tags:
-        if tags_tree.get(tag, None) != Nil:  # complex tag, replace tag list with dict
-            return [tags_in_tree(tags_tree, tags)]
-    else:
-        return tags
+    
 
 
 def validate_soap_arguments(z_client: Client, element_name: str, **kwargs) -> bool:
