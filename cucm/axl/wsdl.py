@@ -7,12 +7,10 @@ from cucm.axl.exceptions import (
     WSDLDrillDownException,
     WSDLException,
     WSDLInvalidArgument,
-    WSDLMissingArguments,
     WSDLChoiceException,
     DumbProgrammerException,
     TagNotValid,
     WSDLValueOnlyException,
-    _list_options,
 )
 from termcolor import colored
 
@@ -137,18 +135,6 @@ class AXLElement:
             and self.parent is not None
         ):
             atrib_str += colored(f" ({type(self.type).__name__})", "green")
-
-        # print(
-        #     f"{'  ' * indent if indent < 2 else ('  |' * (indent - 1)) + '  '}{'┗ ' if indent else ''}",
-        #     colored(self.name, "blue")
-        #     if (show_required and self.needed and self.parent is not None)
-        #     else self.name,
-        #     f"({self.type})" if show_types else "",
-        #     colored(f"{' (required)' if self.needed else ''}", "blue")
-        #     if (show_required and self.parent is not None)
-        #     else "",
-        #     sep="",
-        # )
 
         print(branch_str, name_str, atrib_str, sep="")
 
@@ -277,7 +263,6 @@ class AXLElement:
             elif element.type == Sequence:
                 return {c.name: get_element_tree(c) for c in element.children}
             else:
-                # return {e.name: get_element_tree(e) for e in element.children}
                 tree_dict: dict = dict()
                 for e in element.children:
                     if e.type == Choice:
@@ -420,12 +405,6 @@ def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> lis
                 )
         return picked_tree
 
-    # tree = _get_element_tree(z_client, element_name=element_name)
-    # if type(tree) == str:
-    #     raise WSDLException(
-    #         f"Making element tree for '{element_name}' reuslted in nothing"
-    #     )
-
     tags_tree = AXLElement(__get_element_by_name(z_client, element_name)).get("returnedTags", None)
     if tags_tree is None:
         raise WSDLException(f"Element '{element_name}' has no returnedTags sub-element")
@@ -436,15 +415,7 @@ def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> lis
         if tags_dict.get(tag, None) != Nil:  # complex tag, replace tag list with dict
             return [tags_in_tree(tags_dict, tags)]
     else:
-        return tags
-
-
-def fix_return_tags_2(z_client: Client, element_name: str, tags: list[str]) -> list:
-    tags_tree = AXLElement(__get_element_by_name(z_client, element_name)).return_tags()
-    if not tags_tree:
-        raise WSDLException(f"Element '{element_name}' has no returnedTags sub-element")
-
-    
+        return tags   
 
 
 def validate_soap_arguments(z_client: Client, element_name: str, **kwargs) -> bool:
