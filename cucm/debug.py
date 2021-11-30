@@ -1,8 +1,35 @@
 from cucm.axl import Axl, get_credentials
-from cucm.axl.exceptions import AXLClassException, UCMException, WSDLException
+from cucm.axl.exceptions import (
+    URLInvalidError,
+    UCMInvalidError,
+    UCMConnectionFailure,
+    UCMNotFoundError,
+    AXLInvalidUrlError,
+    AXLInvalidCredentials,
+    AXLNotFoundError,
+    AXLConnectionFailure,
+    UCMVersionError,
+    UCMVersionInvalid,
+    AXLClassException,
+    WSDLException,
+)
 from cucm.axl.wsdl import print_element_layout
 import keyring
 import sys, os
+
+
+VALIDATION_EXCEPTIONS = (
+    URLInvalidError,
+    UCMInvalidError,
+    UCMConnectionFailure,
+    UCMNotFoundError,
+    AXLInvalidUrlError,
+    AXLInvalidCredentials,
+    AXLNotFoundError,
+    AXLConnectionFailure,
+    UCMVersionError,
+    UCMVersionInvalid,
+)
 
 
 def set_url_and_port() -> Axl:
@@ -23,16 +50,16 @@ def set_url_and_port() -> Axl:
                 )
                 keyring.set_password("cucm-py", "webaddr", new_weburl)
                 keyring.set_password("cucm-py", "port", port)
-            except UCMException as e:
-                print(f"\nThat URL didn't work ({e.err})...please try again.")
+            except VALIDATION_EXCEPTIONS as e:
+                print(f"\nThat URL didn't work ({e.__name__})...please try again.")
         else:
             port = keyring.get_password("cucm-py", "port")
             try:
                 valid_ucm = Axl(*get_credentials(), cucm=weburl, port=port)
-            except UCMException as e:
+            except VALIDATION_EXCEPTIONS as e:
                 if (
                     input(
-                        f"Stored URL '{weburl}:{port}' did not work ({e.err}).\nWant to try another? [y/n]: "
+                        f"Stored URL '{weburl}:{port}' did not work ({e.__name__}).\nWant to try another? [y/n]: "
                     ).lower()
                     == "y"
                 ):
@@ -58,14 +85,13 @@ def clear_url_and_port() -> None:
     print("URL and port cleared")
 
 
-ucm = set_url_and_port()
-
-
 def axl_connect() -> None:
+    ucm = set_url_and_port()
     print(ucm.cucm, f"v{ucm.cucm_version}")
 
 
 def print_axl_tree() -> None:
+    ucm = set_url_and_port()
     if len(sys.argv) < 2:
         print(
             "USAGE: poetry run show_tree [AXL_METHOD] [AXL_METHOD_2] [AXL_METHOD_3] ..."
@@ -84,6 +110,7 @@ def print_axl_tree() -> None:
 
 
 def print_soap_tree() -> None:
+    ucm = set_url_and_port()
     if len(sys.argv) < 2:
         print(
             "USAGE: poetry run show_tree [AXL_METHOD] [AXL_METHOD_2] [AXL_METHOD_3] ..."
