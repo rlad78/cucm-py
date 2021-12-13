@@ -24,6 +24,7 @@ from zeep.transports import Transport
 from zeep.cache import SqliteCache
 from zeep.exceptions import Fault
 from zeep.helpers import serialize_object
+from zeep.xsd import Nil
 from functools import wraps
 from copy import deepcopy
 import inspect
@@ -2512,7 +2513,52 @@ class Axl(object):
         else:
             raise InvalidArguments("Must provide a value for either 'uuid' or 'name'")
 
+    @check_arguments("addPhone", child="phone")
     def add_phone(
+        self,
+        dev_name: str,
+        dev_model: str,
+        description: str,
+        button_template: str,
+        dev_pool: str,
+        protocol="SIP",
+        common_phone_profile="Standard Common Phone Profile",
+        location="Hub_None",
+        use_relay_point="Default",
+        built_in_bridge="Default",
+        packet_capture_mode="None",
+        cert_operation="No Pending Operation",
+        mobility_mode="Default",
+        **kwargs,
+    ) -> Union[dict, Fault]:
+        add_tags = {
+            "name": dev_name,
+            "description": description,
+            "product": dev_model,
+            "class": "Phone",
+            "protocol": protocol,
+            "protocolSide": "User",
+            "devicePoolName": dev_pool,
+            "commonPhoneConfigName": common_phone_profile,
+            "locationName": location,
+            "useTrustedRelayPoint": use_relay_point,
+            "phoneTemplateName": button_template,
+            "primaryPhoneName": Nil,
+            "builtInBridgeStatus": built_in_bridge,
+            "packetCaptureMode": packet_capture_mode,
+            "certificateOperation": cert_operation,
+            "deviceMobilityMode": mobility_mode,
+        }
+        add_tags.update(kwargs)
+
+        # TODO: make use of templates by using get_phone() to retrieve template by name
+
+        try:
+            return self.client.addPhone(phone=add_tags)
+        except Fault as e:
+            return e
+
+    def add_phone_old(
         self,
         name,
         description="",
