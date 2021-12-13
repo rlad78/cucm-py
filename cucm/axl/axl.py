@@ -172,7 +172,7 @@ def operation_tag(element_name: str):
     return operation_tag_decorator
 
 
-def check_arguments(element_name: str):
+def check_arguments(element_name: str, child=None):
     def check_argument_deorator(func: TCallable) -> TCallable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -182,7 +182,7 @@ def check_arguments(element_name: str):
             # get non-default kwargs
             default_kwargs = list(inspect.signature(func).parameters)
             user_kwargs = {k: v for k, v in kwargs.items() if k not in default_kwargs}
-            validate_arguments(args[0].zeep, element_name, **user_kwargs)
+            validate_arguments(args[0].zeep, element_name, child=child, **user_kwargs)
             return func(*args, **kwargs)
 
         wrapper.element_name = element_name

@@ -289,7 +289,6 @@ class AXLElement:
                 children_dict.update(child.to_dict())
             return {self.name: children_dict}
 
-
     def needed_only(self) -> Union["AXLElement", None]:
         if self.parent is None:
             needed_root = AXLElement(self.elem)
@@ -405,17 +404,19 @@ def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> lis
                 )
         return picked_tree
 
-    tags_tree = AXLElement(__get_element_by_name(z_client, element_name)).get("returnedTags", None)
+    tags_tree = AXLElement(__get_element_by_name(z_client, element_name)).get(
+        "returnedTags", None
+    )
     if tags_tree is None:
         raise WSDLException(f"Element '{element_name}' has no returnedTags sub-element")
 
     tags_dict = tags_tree.to_dict()["returnedTags"]
-        
+
     for tag in tags:
         if tags_dict.get(tag, None) != Nil:  # complex tag, replace tag list with dict
             return [tags_in_tree(tags_dict, tags)]
     else:
-        return tags   
+        return tags
 
 
 def validate_soap_arguments(z_client: Client, element_name: str, **kwargs) -> bool:
@@ -450,8 +451,16 @@ def print_return_tags_layout(
         r_tags.print_tree(show_types=show_types, show_required=show_required)
 
 
-def validate_arguments(z_client: Client, element_name: str, **kwargs) -> None:
+def validate_arguments(
+    z_client: Client, element_name: str, child=None, **kwargs
+) -> None:
     if not kwargs:
         return None
+
     root: AXLElement = AXLElement(__get_element_by_name(z_client, element_name))
+    if (
+        child is not None
+    ):  # if the child needs to be the reference point instead of root node
+        root = root.get(child)
+
     root.validate(**kwargs)
