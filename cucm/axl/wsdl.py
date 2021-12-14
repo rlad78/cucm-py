@@ -244,10 +244,10 @@ class AXLElement:
                     elif type(value[0]) == dict:
                         for entry in value:
                             self.validate(**{name: entry})
-                    else:
-                        raise DumbProgrammerException(
-                            f"Didn't account for type {type(value)} for value type."
-                        )
+                    # else:
+                    #     raise DumbProgrammerException(
+                    #         f"Didn't account for type {type(value)} for value type."
+                    #     )
 
     def return_tags(self) -> dict:
         if self.parent is not None:
