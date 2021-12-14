@@ -2517,10 +2517,12 @@ class Axl(object):
     def add_phone(
         self,
         dev_name: str,
-        dev_model: str,
-        description: str,
-        button_template: str,
-        dev_pool: str,
+        dev_model="",
+        description="",
+        button_template="",
+        dev_pool="",
+        use_phone_template="",
+        *,
         protocol="SIP",
         common_phone_profile="Standard Common Phone Profile",
         location="Hub_None",
@@ -2531,27 +2533,36 @@ class Axl(object):
         mobility_mode="Default",
         **kwargs,
     ) -> Union[dict, Fault]:
-        add_tags = {
-            "name": dev_name,
-            "description": description,
-            "product": dev_model,
-            "class": "Phone",
-            "protocol": protocol,
-            "protocolSide": "User",
-            "devicePoolName": dev_pool,
-            "commonPhoneConfigName": common_phone_profile,
-            "locationName": location,
-            "useTrustedRelayPoint": use_relay_point,
-            "phoneTemplateName": button_template,
-            "primaryPhoneName": Nil,
-            "builtInBridgeStatus": built_in_bridge,
-            "packetCaptureMode": packet_capture_mode,
-            "certificateOperation": cert_operation,
-            "deviceMobilityMode": mobility_mode,
-        }
-        add_tags.update(kwargs)
+        if use_phone_template:
+            found_template = self.get_phone(name=use_phone_template)
 
-        # TODO: make use of templates by using get_phone() to retrieve template by name
+        else:
+            if any(
+                [v == "" for v in (dev_model, description, button_template, dev_pool)]
+            ):
+                raise InvalidArguments(
+                    "If a template is not used, values must be supplied for dev_model, description, button_template, and dev_pool"
+                )
+
+            add_tags = {
+                "name": dev_name,
+                "description": description,
+                "product": dev_model,
+                "class": "Phone",
+                "protocol": protocol,
+                "protocolSide": "User",
+                "devicePoolName": dev_pool,
+                "commonPhoneConfigName": common_phone_profile,
+                "locationName": location,
+                "useTrustedRelayPoint": use_relay_point,
+                "phoneTemplateName": button_template,
+                "primaryPhoneName": Nil,
+                "builtInBridgeStatus": built_in_bridge,
+                "packetCaptureMode": packet_capture_mode,
+                "certificateOperation": cert_operation,
+                "deviceMobilityMode": mobility_mode,
+            }
+            add_tags.update(kwargs)
 
         try:
             return self.client.addPhone(phone=add_tags)
@@ -3760,3 +3771,26 @@ def filter_empty_kwargs(all_args: dict, arg_renames: dict = {}) -> dict:
         if value == Empty:
             args_copy[arg] = ""
     return args_copy
+
+
+def extract_template(signature: dict, template: dict) -> dict:
+    result = {}
+    for name, value in template.items():
+        if value is None or value == -1:
+            continue
+        if (signature_value := signature.get(name, None)) is not None:
+            if type(signature_value) == dict and type(value) == dict:
+                result_dict = extract_template(signature_value, value)
+                if result_dict:
+                    result[name] = result_dict
+            elif type(signature_value) == dict and type(value) == list:
+                result_list = [extract_template(signature_value, t) for t in value]
+                if result_list:
+                    result[name] = result_list
+            elif type(signature_value) != dict:
+                result[name] = value
+            else:
+                raise DumbProgrammerException(
+                    f"Unhandled type exchange between signature '{name}' ({type(signature_value).__name__}) and template '{name}' ({type(value).__name__})"
+                )
+    return result
