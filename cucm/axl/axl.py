@@ -6,8 +6,10 @@ from cucm.axl.validation import (
 )
 from cucm.axl.exceptions import *
 from cucm.axl.wsdl import (
+    AXLElement,
     get_return_tags,
     fix_return_tags,
+    get_tree,
     print_element_layout,
     print_required_element_layout,
     print_return_tags_layout,
@@ -294,6 +296,58 @@ class Axl(object):
         )
         if verbose:
             print("Connection to AXL service established!\n")
+
+    def _extract_template(self, element_name: str, template: dict, child="") -> dict:
+        def is_removable(branch: dict) -> bool:
+            for value in branch.values():
+                if type(value) == dict:
+                    if is_removable(value) == False:
+                        return False
+                elif type(value) == list:
+                    if not all([is_removable(v) for v in value]):
+                        return False
+                elif value not in (None, -1, ""):
+                    return False
+            else:
+                return True
+
+        def tree_match(root: AXLElement, template: dict) -> dict:
+            result = {}
+            for name, value in template.items():
+                if (node := root.get(name, None)) is not None:
+                    if node.children and type(value) == dict:
+                        result_dict = tree_match(node, value)
+                        if (
+                            not is_removable(result_dict)
+                            or node._parent_chain_required()
+                        ):
+                            result[name] = result_dict
+                    elif node.children and type(value) == list:
+                        result_list = [tree_match(node, t) for t in value]
+                        if all([type(r) == dict for r in result_list]):
+                            result_list = [
+                                r for r in result_list if not is_removable(r)
+                            ]
+                        if result_list:
+                            result[name] = result_list
+                    else:
+                        result[name] = value
+            return result
+
+        tree: AXLElement = get_tree(self.zeep, element_name)
+        if child:
+            tree = tree.get(child, None)
+            if tree is None:
+                raise DumbProgrammerException(
+                    f"{tree.name} does not have a child named '{child}'"
+                )
+
+        result_data = tree_match(tree, template)
+        for name, value in deepcopy(result_data).items():
+            if value in (None, -1, "") and not tree.get(name)._parent_chain_required():
+                result_data.pop(name)
+
+        return result_data
 
     def _line_template(self, pattern: str, route_partition: str) -> dict:
         if not pattern:
@@ -2517,11 +2571,12 @@ class Axl(object):
     def add_phone(
         self,
         dev_name: str,
+        description: str,
         dev_model="",
-        description="",
         button_template="",
         dev_pool="",
         use_phone_template="",
+        keep_template_load=False,
         *,
         protocol="SIP",
         common_phone_profile="Standard Common Phone Profile",
@@ -2535,6 +2590,21 @@ class Axl(object):
     ) -> Union[dict, Fault]:
         if use_phone_template:
             found_template = self.get_phone(name=use_phone_template)
+            add_tags = self._extract_template("addPhone", found_template, child="phone")
+            add_tags.update(
+                {
+                    "name": dev_name,  # definitely want to use our own name
+                    "class": "Phone",  # we're not inserting a "Phone Template" here
+                    "description": description,
+                }
+            )
+            
+            add_tags.pop("lines")
+            if not keep_template_load:
+                add_tags.pop("loadInformation")
+
+            # consider putting in the work to check the original method signature and see
+            # if any keyword values are different than the default
 
         else:
             if any(
@@ -2562,8 +2632,8 @@ class Axl(object):
                 "certificateOperation": cert_operation,
                 "deviceMobilityMode": mobility_mode,
             }
-            add_tags.update(kwargs)
 
+        add_tags.update(kwargs)
         try:
             return self.client.addPhone(phone=add_tags)
         except Fault as e:
@@ -3771,26 +3841,3 @@ def filter_empty_kwargs(all_args: dict, arg_renames: dict = {}) -> dict:
         if value == Empty:
             args_copy[arg] = ""
     return args_copy
-
-
-def extract_template(signature: dict, template: dict) -> dict:
-    result = {}
-    for name, value in template.items():
-        if value is None or value == -1:
-            continue
-        if (signature_value := signature.get(name, None)) is not None:
-            if type(signature_value) == dict and type(value) == dict:
-                result_dict = extract_template(signature_value, value)
-                if result_dict:
-                    result[name] = result_dict
-            elif type(signature_value) == dict and type(value) == list:
-                result_list = [extract_template(signature_value, t) for t in value]
-                if result_list:
-                    result[name] = result_list
-            elif type(signature_value) != dict:
-                result[name] = value
-            else:
-                raise DumbProgrammerException(
-                    f"Unhandled type exchange between signature '{name}' ({type(signature_value).__name__}) and template '{name}' ({type(value).__name__})"
-                )
-    return result

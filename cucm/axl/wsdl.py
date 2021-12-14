@@ -393,6 +393,10 @@ def get_return_tree(z_client: Client, element_name: str) -> dict:
     return AXLElement(root_element).return_tags()
 
 
+def get_tree(z_client: Client, element_name: str) -> AXLElement:
+    return AXLElement(__get_element_by_name(z_client, element_name))
+
+
 def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> list:
     def tags_in_tree(tree: dict, tags: list[str]) -> dict:
         picked_tree: dict = dict()
