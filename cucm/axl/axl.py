@@ -47,8 +47,8 @@ def serialize(func: TCallable) -> TCallable:
 
         if r_value is None:
             return dict()
-        elif issubclass(type(r_value), Exception):
-            raise AXLFault(r_value)
+        # elif issubclass(type(r_value), Exception):
+        #     raise AXLFault(r_value)
         elif (
             "return_tags" not in kwargs
             and (
@@ -473,7 +473,7 @@ class Axl(object):
                 "return"
             ]["location"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def run_sql_query(self, query: str) -> dict:
         """Legacy function. Use sql_query() instead.
@@ -533,7 +533,7 @@ class Axl(object):
             recv = self.client.executeSQLQuery(query)["return"]
             data = recv["row"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
         except (KeyError, TypeError):  # no rows returned
             return [[]]
         if not data:  # data is empty
@@ -566,7 +566,7 @@ class Axl(object):
         try:
             return self.client.executeSQLUpdate(query)["return"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     @serialize_list
     @check_tags("listLdapDirectory")
@@ -600,7 +600,7 @@ class Axl(object):
                 "return"
             ]["ldapDirectory"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     # ? don't want to do LDAP sync to test this one out...
     @serialize
@@ -613,7 +613,7 @@ class Axl(object):
         try:
             return self.client.doLdapSync(uuid=uuid, sync=True)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     @serialize
     @operation_tag("doChangeDNDStatus")
@@ -639,7 +639,7 @@ class Axl(object):
         try:
             return self.client.doChangeDNDStatus(userID=user_id, dndStatus=dnd_enabled)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     # ? no idea what this does
     @check_arguments("doDeviceLogin")
@@ -647,7 +647,7 @@ class Axl(object):
         try:
             return self.client.doDeviceLogin(**kwargs)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     # ? no idea what this does
     @check_arguments("doDeviceLogout")
@@ -655,7 +655,7 @@ class Axl(object):
         try:
             return self.client.doDeviceLogout(**kwargs)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     @serialize
     @operation_tag("doDeviceReset")
@@ -846,7 +846,7 @@ class Axl(object):
         try:
             return self.client.updateLocation(**kwargs)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     @serialize_list
     @check_tags("listRegion")
@@ -871,7 +871,7 @@ class Axl(object):
                 searchCriteria={"name": "%"}, returnedTags=tags
             )["return"]["region"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     @serialize
     @check_tags("getRegion")
@@ -888,7 +888,7 @@ class Axl(object):
         try:
             return self.client.getRegion(name=name, returnedTags=tags)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_region(self, name):
         """
@@ -899,7 +899,7 @@ class Axl(object):
         try:
             return self.client.addRegion({"name": name})
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_region(self, name="", newName="", moh_region=""):
         """
@@ -959,7 +959,7 @@ class Axl(object):
                 relatedRegions={"relatedRegion": region_list},
             )
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_region(self, **args):
         """
@@ -971,7 +971,7 @@ class Axl(object):
         try:
             return self.client.removeRegion(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_srsts(self, tagfilter={"uuid": ""}):
         """
@@ -984,7 +984,7 @@ class Axl(object):
                 "return"
             ]["srst"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_srst(self, name):
         """
@@ -995,7 +995,7 @@ class Axl(object):
         try:
             return self.client.getSrst(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_srst(self, name, ip_address, port=2000, sip_port=5060):
         """
@@ -1016,7 +1016,7 @@ class Axl(object):
                 }
             )
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_srst(self, name):
         """
@@ -1027,7 +1027,7 @@ class Axl(object):
         try:
             return self.client.removeSrst(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_srst(self, name, newName=""):
         """
@@ -1039,7 +1039,7 @@ class Axl(object):
         try:
             return self.client.updateSrst(name=name, newName=newName)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_device_pools(
         self,
@@ -1063,7 +1063,7 @@ class Axl(object):
                 "return"
             ]["devicePool"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_device_pool(self, **args):
         """
@@ -1074,7 +1074,7 @@ class Axl(object):
         try:
             return self.client.getDevicePool(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_device_pool(
         self,
@@ -1120,7 +1120,7 @@ class Axl(object):
                 }
             )
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_device_pool(self, **args):
         """
@@ -1143,7 +1143,7 @@ class Axl(object):
         try:
             return self.client.updateDevicePool(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_device_pool(self, **args):
         """
@@ -1154,7 +1154,7 @@ class Axl(object):
         try:
             return self.client.removeDevicePool(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_conference_bridges(
         self,
@@ -1176,7 +1176,7 @@ class Axl(object):
                 returnedTags=tagfilter,
             )["return"]["conferenceBridge"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_conference_bridge(self, name):
         """
@@ -1187,7 +1187,7 @@ class Axl(object):
         try:
             return self.client.getConferenceBridge(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_conference_bridge(
         self,
@@ -1220,7 +1220,7 @@ class Axl(object):
                 }
             )
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_conference_bridge(self, **args):
         """
@@ -1237,7 +1237,7 @@ class Axl(object):
         try:
             return self.client.updateConferenceBridge(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_conference_bridge(self, name):
         """
@@ -1248,7 +1248,7 @@ class Axl(object):
         try:
             return self.client.removeConferenceBridge(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_transcoders(
         self, tagfilter={"name": "", "description": "", "devicePoolName": ""}
@@ -1263,7 +1263,7 @@ class Axl(object):
                 "return"
             ]["transcoder"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_transcoder(self, name):
         """
@@ -1274,7 +1274,7 @@ class Axl(object):
         try:
             return self.client.getTranscoder(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_transcoder(
         self,
@@ -1301,7 +1301,7 @@ class Axl(object):
                 }
             )
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_transcoder(self, **args):
         """
@@ -1316,7 +1316,7 @@ class Axl(object):
         try:
             return self.client.updateTranscoder(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_transcoder(self, name):
         """
@@ -1327,7 +1327,7 @@ class Axl(object):
         try:
             return self.client.removeTranscoder(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_mtps(self, tagfilter={"name": "", "description": "", "devicePoolName": ""}):
         """
@@ -1340,7 +1340,7 @@ class Axl(object):
                 "return"
             ]["mtp"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_mtp(self, name):
         """
@@ -1351,7 +1351,7 @@ class Axl(object):
         try:
             return self.client.getMtp(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_mtp(
         self,
@@ -1378,7 +1378,7 @@ class Axl(object):
                 }
             )
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_mtp(self, **args):
         """
@@ -1393,7 +1393,7 @@ class Axl(object):
         try:
             return self.client.updateMtp(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_mtp(self, name):
         """
@@ -1404,7 +1404,7 @@ class Axl(object):
         try:
             return self.client.removeMtp(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_h323_gateways(
         self,
@@ -1426,7 +1426,7 @@ class Axl(object):
                 "return"
             ]["h323Gateway"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_h323_gateway(self, name):
         """
@@ -1437,7 +1437,7 @@ class Axl(object):
         try:
             return self.client.getH323Gateway(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_h323_gateway(self, **args):
         """
@@ -1477,7 +1477,7 @@ class Axl(object):
         try:
             return self.client.addH323Gateway(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_h323_gateway(self, **args):
         """
@@ -1488,7 +1488,7 @@ class Axl(object):
         try:
             return self.client.updateH323Gateway(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_h323_gateway(self, name):
         """
@@ -1499,7 +1499,7 @@ class Axl(object):
         try:
             return self.client.removeH323Gateway(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_route_groups(self, tagfilter={"name": "", "distributionAlgorithm": ""}):
         """
@@ -1512,7 +1512,7 @@ class Axl(object):
                 "return"
             ]["routeGroup"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_route_group(self, **args):
         """
@@ -1524,7 +1524,7 @@ class Axl(object):
         try:
             return self.client.getRouteGroup(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_route_group(self, name, distribution_algorithm="Top Down", members=[]):
         """
@@ -1554,7 +1554,7 @@ class Axl(object):
         try:
             return self.client.addRouteGroup(req)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_route_group(self, **args):
         """
@@ -1565,7 +1565,7 @@ class Axl(object):
         try:
             return self.client.removeRouteGroup(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_route_group(self, **args):
         """
@@ -1578,7 +1578,7 @@ class Axl(object):
         try:
             return self.client.updateRouteGroup(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_route_lists(self, tagfilter={"name": "", "description": ""}):
         """
@@ -1591,7 +1591,7 @@ class Axl(object):
                 "return"
             ]["routeList"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_route_list(self, **args):
         """
@@ -1603,7 +1603,7 @@ class Axl(object):
         try:
             return self.client.getRouteList(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_route_list(
         self,
@@ -1658,7 +1658,7 @@ class Axl(object):
         try:
             return self.client.addRouteList(req)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_route_list(self, **args):
         """
@@ -1670,7 +1670,7 @@ class Axl(object):
         try:
             return self.client.removeRouteList(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_route_list(self, **args):
         """
@@ -1687,7 +1687,7 @@ class Axl(object):
         try:
             return self.client.updateRouteList(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_partitions(self, tagfilter={"name": "", "description": ""}):
         """
@@ -1700,7 +1700,7 @@ class Axl(object):
                 {"name": "%"}, returnedTags=tagfilter
             )["return"]["routePartition"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_partition(self, **args):
         """
@@ -1712,7 +1712,7 @@ class Axl(object):
         try:
             return self.client.getRoutePartition(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_partition(self, name, description="", time_schedule_name="All the time"):
         """
@@ -1731,7 +1731,7 @@ class Axl(object):
                 }
             )
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_partition(self, **args):
         """
@@ -1742,7 +1742,7 @@ class Axl(object):
         try:
             return self.client.removeRoutePartition(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_partition(self, **args):
         """
@@ -1759,7 +1759,7 @@ class Axl(object):
         try:
             return self.client.updateRoutePartition(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_calling_search_spaces(self, tagfilter={"name": "", "description": ""}):
         """
@@ -1772,7 +1772,7 @@ class Axl(object):
                 "css"
             ]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_calling_search_space(self, **css):
         """
@@ -1784,7 +1784,7 @@ class Axl(object):
         try:
             return self.client.getCss(**css)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_calling_search_space(self, name, description="", members=[]):
         """
@@ -1813,7 +1813,7 @@ class Axl(object):
         try:
             return self.client.addCss(req)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_calling_search_space(self, **args):
         """
@@ -1824,7 +1824,7 @@ class Axl(object):
         try:
             return self.client.removeCss(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_calling_search_space(self, **args):
         """
@@ -1841,7 +1841,7 @@ class Axl(object):
         try:
             return self.client.updateCss(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_route_patterns(
         self, tagfilter={"pattern": "", "description": "", "uuid": ""}
@@ -1857,7 +1857,7 @@ class Axl(object):
                 returnedTags=tagfilter,
             )["return"]["routePattern"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_route_pattern(self, pattern="", uuid=""):
         """
@@ -1933,7 +1933,7 @@ class Axl(object):
         try:
             return self.client.addRoutePattern(req)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_route_pattern(self, **args):
         """
@@ -1946,7 +1946,7 @@ class Axl(object):
         try:
             return self.client.removeRoutePattern(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_route_pattern(self, **args):
         """
@@ -1964,7 +1964,7 @@ class Axl(object):
         try:
             return self.client.updateRoutePattern(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_media_resource_groups(self, tagfilter={"name": "", "description": ""}):
         """
@@ -1977,7 +1977,7 @@ class Axl(object):
                 {"name": "%"}, returnedTags=tagfilter
             )["return"]["mediaResourceGroup"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_media_resource_group(self, name):
         """
@@ -1988,7 +1988,7 @@ class Axl(object):
         try:
             return self.client.getMediaResourceGroup(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_media_resource_group(
         self, name, description="", multicast="false", members=[]
@@ -2014,7 +2014,7 @@ class Axl(object):
         try:
             return self.client.addMediaResourceGroup(req)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_media_resource_group(self, **args):
         """
@@ -2028,7 +2028,7 @@ class Axl(object):
         try:
             return self.client.updateMediaResourceGroup(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_media_resource_group(self, name):
         """
@@ -2039,7 +2039,7 @@ class Axl(object):
         try:
             return self.client.removeMediaResourceGroup(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_media_resource_group_lists(self, tagfilter={"name": ""}):
         """
@@ -2052,7 +2052,7 @@ class Axl(object):
                 {"name": "%"}, returnedTags=tagfilter
             )["return"]["mediaResourceList"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_media_resource_group_list(self, name):
         """
@@ -2063,7 +2063,7 @@ class Axl(object):
         try:
             return self.client.getMediaResourceList(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_media_resource_group_list(self, name, members=[]):
         """
@@ -2084,7 +2084,7 @@ class Axl(object):
         try:
             return self.client.addMediaResourceList(req)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_media_resource_group_list(self, **args):
         """
@@ -2098,7 +2098,7 @@ class Axl(object):
         try:
             return self.client.updateMediaResourceList(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_media_resource_group_list(self, name):
         """
@@ -2109,7 +2109,7 @@ class Axl(object):
         try:
             return self.client.removeMediaResourceList(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     @serialize_list
     @check_tags("listLine")
@@ -2191,7 +2191,7 @@ class Axl(object):
                 pattern=pattern, routePartitionName=route_partition, returnedTags=tags
             )["return"]["line"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_directory_number(
         self,
@@ -2294,7 +2294,7 @@ class Axl(object):
                 }
             )
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     @serialize
     @operation_tag("removeLine")
@@ -2392,7 +2392,7 @@ class Axl(object):
                 "return"
             ]["ctiRoutePoint"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_cti_route_point(self, **args):
         """
@@ -2404,7 +2404,7 @@ class Axl(object):
         try:
             return self.client.getCtiRoutePoint(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_cti_route_point(
         self,
@@ -2469,7 +2469,7 @@ class Axl(object):
         try:
             return self.client.addCtiRoutePoint(req)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_cti_route_point(self, **args):
         """
@@ -2480,7 +2480,7 @@ class Axl(object):
         try:
             return self.client.removeCtiRoutePoint(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_cti_route_point(self, **args):
         """
@@ -2504,7 +2504,7 @@ class Axl(object):
         try:
             return self.client.updateCtiRoutePoint(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     @serialize_list
     @check_tags("listPhone")
@@ -2637,7 +2637,7 @@ class Axl(object):
         try:
             return self.client.addPhone(phone=add_tags)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_phone(self, **args):
         """
@@ -2648,7 +2648,7 @@ class Axl(object):
         try:
             return self.client.removePhone(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     @check_arguments("updatePhone")
     def update_phone(
@@ -2686,7 +2686,7 @@ class Axl(object):
         try:
             return self.client.updatePhone(**axl_args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_phone_line(
         self, dev_name: str, dn: tuple[str, str], position=0, replace=False
@@ -2753,7 +2753,7 @@ class Axl(object):
                 returnedTags=tagfilter,
             )["return"]["deviceProfile"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_device_profile(self, **args):
         """
@@ -2765,7 +2765,7 @@ class Axl(object):
         try:
             return self.client.getDeviceProfile(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_device_profile(
         self,
@@ -2830,7 +2830,7 @@ class Axl(object):
             blah = self.client.addDeviceProfile(req)
             return blah
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_device_profile(self, **args):
         """
@@ -2841,7 +2841,7 @@ class Axl(object):
         try:
             return self.client.removeDeviceProfile(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_device_profile(self, **args):
         """
@@ -2865,7 +2865,7 @@ class Axl(object):
         try:
             return self.client.updateDeviceProfile(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_users(self, tagfilter={"userid": "", "firstName": "", "lastName": ""}):
         """
@@ -2899,7 +2899,7 @@ class Axl(object):
         try:
             return self.client.getUser(userid=userid)["return"]["user"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_user(
         self,
@@ -2928,7 +2928,7 @@ class Axl(object):
                 }
             )
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_user(self, **args):
         """
@@ -2941,7 +2941,7 @@ class Axl(object):
         try:
             return self.client.updateUser(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_user_em(
         self, user_id, device_profile, default_profile, subscribe_css, primary_extension
@@ -2958,7 +2958,7 @@ class Axl(object):
         try:
             resp = self.client.getDeviceProfile(name=device_profile)
         except Fault as e:
-            return e
+            raise AXLFault(e)
         if "return" in resp and resp["return"] is not None:
             uuid = resp["return"]["deviceProfile"]["uuid"]
             try:
@@ -3014,7 +3014,7 @@ class Axl(object):
         try:
             return self.client.removeUser(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_translations(self):
         """
@@ -3043,7 +3043,7 @@ class Axl(object):
                 },
             )["return"]["transPattern"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_translation(self, pattern="", routePartitionName="", uuid=""):
         """
@@ -3155,7 +3155,7 @@ class Axl(object):
                 }
             )
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_translation(self, pattern="", partition="", uuid=""):
         """
@@ -3254,7 +3254,7 @@ class Axl(object):
         try:
             return self.client.updateTransPattern(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def list_route_plan(self, pattern=""):
         """
@@ -3273,7 +3273,7 @@ class Axl(object):
                 },
             )["return"]["routePlan"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def list_route_plan_specific(self, pattern=""):
         """
@@ -3292,7 +3292,7 @@ class Axl(object):
                 },
             )
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_called_party_xforms(self):
         """
@@ -3306,7 +3306,7 @@ class Axl(object):
                 returnedTags={"pattern": "", "description": "", "uuid": ""},
             )["return"]["calledPartyTransformationPattern"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_called_party_xform(self, **args):
         """
@@ -3319,7 +3319,7 @@ class Axl(object):
         try:
             return self.client.getCalledPartyTransformationPattern(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_called_party_xform(
         self,
@@ -3357,7 +3357,7 @@ class Axl(object):
                 }
             )
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_called_party_xform(self, **args):
         """
@@ -3370,7 +3370,7 @@ class Axl(object):
         try:
             return self.client.removeCalledPartyTransformationPattern(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_called_party_xform(self, **args):
         """
@@ -3393,7 +3393,7 @@ class Axl(object):
         try:
             return self.client.updateCalledPartyTransformationPattern(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_calling_party_xforms(self):
         """
@@ -3407,7 +3407,7 @@ class Axl(object):
                 returnedTags={"pattern": "", "description": "", "uuid": ""},
             )["return"]["callingPartyTransformationPattern"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_calling_party_xform(self, **args):
         """
@@ -3420,7 +3420,7 @@ class Axl(object):
         try:
             return self.client.getCallingPartyTransformationPattern(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_calling_party_xform(
         self,
@@ -3458,7 +3458,7 @@ class Axl(object):
                 }
             )
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_calling_party_xform(self, **args):
         """
@@ -3471,7 +3471,7 @@ class Axl(object):
         try:
             return self.client.removeCallingPartyTransformationPattern(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_calling_party_xform(self, **args):
         """
@@ -3494,7 +3494,7 @@ class Axl(object):
         try:
             return self.client.updateCallingPartyTransformationPattern(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_sip_trunks(
         self, tagfilter={"name": "", "sipProfileName": "", "callingSearchSpaceName": ""}
@@ -3504,7 +3504,7 @@ class Axl(object):
                 "return"
             ]["sipTrunk"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_sip_trunk(self, **args):
         """
@@ -3516,7 +3516,7 @@ class Axl(object):
         try:
             return self.client.getSipTrunk(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_sip_trunk(self, **args):
         """
@@ -3536,25 +3536,25 @@ class Axl(object):
         try:
             return self.client.updateSipTrunk(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_sip_trunk(self, **args):
         try:
             return self.client.removeSipTrunk(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_sip_security_profile(self, name):
         try:
             return self.client.getSipTrunkSecurityProfile(name=name)["return"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_sip_profile(self, name):
         try:
             return self.client.getSipProfile(name=name)["return"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_sip_trunk(self, **args):
         """
@@ -3576,7 +3576,7 @@ class Axl(object):
         try:
             return self.client.addSipTrunk(**args)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def list_process_nodes(self):
         try:
@@ -3585,7 +3585,7 @@ class Axl(object):
                 returnedTags={"name": ""},
             )["return"]["processNode"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def add_call_manager_group(self, name, members):
         """
@@ -3598,7 +3598,7 @@ class Axl(object):
         try:
             return self.client.addCallManagerGroup({"name": name, "members": members})
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_call_manager_group(self, name):
         """
@@ -3609,7 +3609,7 @@ class Axl(object):
         try:
             return self.client.getCallManagerGroup(name=name)
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def get_call_manager_groups(self):
         """
@@ -3622,7 +3622,7 @@ class Axl(object):
                 {"name": "%"}, returnedTags={"name": ""}
             )["return"]["callManagerGroup"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def update_call_manager_group(self, **args):
         """
@@ -3633,7 +3633,7 @@ class Axl(object):
         try:
             return self.client.listCallManagerGroup({**args}, returnedTags={"name": ""})
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
     def delete_call_manager_group(self, name):
         """
@@ -3644,7 +3644,7 @@ class Axl(object):
         try:
             return self.client.removeCallManagerGroup({"name": name})
         except Fault as e:
-            return e
+            raise AXLFault(e)
 
 
 def _tag_handler(tags: list) -> dict:
@@ -3721,7 +3721,7 @@ def _chunk_data(axl_request: Callable, data_label: str, **kwargs) -> Union[list,
         try:
             recv = axl_request(**kwargs, first=1000, skip=skip)["return"]
         except Fault as e:
-            return e
+            raise AXLFault(e)
         if recv is not None:
             data.extend(recv[data_label])
             skip += 1000
