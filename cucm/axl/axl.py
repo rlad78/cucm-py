@@ -2695,7 +2695,7 @@ class Axl(object):
         try:
             device = self.get_phone(name=dev_name, return_tags=["lines"])
         except AXLFault as e:
-            raise AXLFaultHandler("Could not find phone to add line to:", e)
+            raise AXLFaultHandler(f"Could not find phone {dev_name} to add line to:", e)
 
         # check if dn exists
         try:
@@ -2736,8 +2736,48 @@ class Axl(object):
                 f"Could not add line {dn} to {dev_name} due to an unknown error:", e
             )
 
-    def remove_phone_line(self, pattern="", index=0, cascade=False):
-        pass
+    def remove_phone_line(self, dev_name: str, dn=None, index=0, cascade=True):
+        # make sure user chose something
+        if not any(dn, index):
+            raise InvalidArguments(
+                f"Must provide either a DN pattern or a phone line index"
+            )
+        elif all(dn, index):
+            raise InvalidArguments(f"Please only provide either a DN or a line index")
+
+        # get phone lines
+        try:
+            device = self.get_phone(name=dev_name, return_tags=["lines"])
+        except AXLFault as e:
+            raise AXLFaultHandler(
+                f"Could not find phone {dev_name} to remove line from:", e
+            )
+
+        if (original_lines := device["lines"]) is None:
+            return None
+
+        # find matching line
+        if dn:
+            match_dn = (
+                lambda x: x["dirn"]["pattern"] == dn[0]
+                and x["dirn"]["routePartitionName"] == dn[1]
+            )
+            matches = filter(match_dn, original_lines["line"])
+            if not matches:
+                print(f"(Couldn't find {dn} in {dev_name} to delete, skipping...)")
+            else:
+                to_delete = matches[0]
+        else:
+            by_index = lambda x: x["index"]
+            ordered_lines = sorted(original_lines["line"], key=by_index)
+            if index > len(ordered_lines):
+                raise Exception(
+                    f"{dev_name} only has {len(ordered_lines)}, can't delete Index {index}"
+                )
+            else:
+                to_delete = ordered_lines[index - 1]
+
+        # ! not finished
 
     def update_phone_line(self):
         pass
@@ -2745,7 +2785,7 @@ class Axl(object):
     def add_phone_speeddials(self):
         pass
 
-    def remove_phone_speeddials(self, pattern="", index=0, cascade=False):
+    def remove_phone_speeddials(self, pattern="", index=0, cascade=True):
         pass
 
     def update_phone_speeddials(self):
@@ -2754,7 +2794,7 @@ class Axl(object):
     def add_phone_blf(self):
         pass
 
-    def remove_phone_blf(self, pattern="", route_partition="", index=0, cascade=False):
+    def remove_phone_blf(self, pattern="", route_partition="", index=0, cascade=True):
         pass
 
     def update_phone_blf(self):
