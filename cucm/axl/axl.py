@@ -2691,23 +2691,50 @@ class Axl(object):
     def add_phone_line(
         self, dev_name: str, dn: tuple[str, str], position=0, replace=False
     ):
-        device = self.get_phone(name=dev_name, return_tags=["lines"])
+        # get current device lines
+        try:
+            device = self.get_phone(name=dev_name, return_tags=["lines"])
+        except AXLFault as e:
+            raise AXLFaultHandler("Could not find phone to add line to:", e)
 
-        if (line_list := device["lines"]["line"]) is not None:
-            current_lines = deepcopy([d for d in line_list])
+        # check if dn exists
+        try:
+            self.get_directory_number(*dn)
+        except AXLFault as e:
+            raise AXLFaultHandler(f"Could not find line {dn} to add to {dev_name}:", e)
+
+        # convert lines to lineIdentifier format
+        dn_to_id = lambda x: {"directoryNumber": x[0], "routePartitionName": x[1]}
+        if (line_list := device["lines"]) is not None:
+            original_dns = [
+                (d["dirn"]["pattern"], d["dirn"]["routePartitionName"])
+                for d in line_list["line"]
+            ]
+            line_ids = [dn_to_id(d) for d in original_dns]
         else:
-            current_lines = []
+            line_ids = []
 
-        new_line = self.get_directory_number(*dn, return_tags=[])
-
+        # insert new line into list
         if position == 0:
-            current_lines.append(new_line)
-        elif replace and position > 0 and position <= len(position):
-            current_lines[position - 1] = new_line
+            line_ids.append(dn_to_id(dn))
         else:
-            current_lines.insert(position - 1, new_line)
+            line_ids.insert(position - 1, dn_to_id(dn))
 
-        print([])
+        # replace device lines with new list
+        try:
+            self.client.updatePhone(
+                name=dev_name,
+                lines={"lineIdentifier": line_ids},
+            )
+        except Fault as e:
+            # ugly but don't care right now
+            raise AXLFaultHandler(
+                f"Could not add line {dn} to {dev_name}:", AXLFault(e)
+            )
+        except Exception as e:
+            raise AXLError(
+                f"Could not add line {dn} to {dev_name} due to an unknown error:", e
+            )
 
     def remove_phone_line(self, pattern="", index=0, cascade=False):
         pass

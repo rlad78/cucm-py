@@ -1,4 +1,5 @@
-from typing import Sequence
+from typing import Sequence, Type
+from traceback import format_exception
 import json
 
 from zeep.exceptions import Fault
@@ -85,10 +86,46 @@ class AXLFault(Exception):
         self.actor = zeep_fault.actor
         self.code = zeep_fault.code
         self.detail = zeep_fault.detail
+        self.fault = zeep_fault
         super().__init__(*args)
 
     def __str__(self) -> str:
         return self.message
+
+
+class AXLFaultHandler(AXLFault):
+    def __init__(
+        self, message: str, axl_fault: AXLFault, *args: object, extra_msg=""
+    ) -> None:
+        self.main_message = message
+        self.end_message = extra_msg
+        super().__init__(axl_fault.fault, *args)
+
+    def __str__(self) -> str:
+        nl = "\n"
+        s_out = f"{self.main_message}{nl}{self.message}"
+        if self.end_message:
+            s_out += f"{nl + nl}{self.end_message}"
+        return s_out
+
+
+class AXLError(Exception):
+    def __init__(
+        self,
+        message: str,
+        original_err: Type[BaseException],
+        *args: object,
+        end_message="",
+    ) -> None:
+        self.start_msg = message
+        self.original_err = original_err
+        self.end_msg = end_message
+        super().__init__(*args)
+
+    def __str__(self) -> str:
+        tb = "".join(format_exception(self.original_err))
+        end = "\n\n" + self.end_msg if self.end_msg else ""
+        return self.start_msg + "\n\n" + tb + end
 
 
 class WSDLException(Exception):
