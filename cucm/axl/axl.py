@@ -2598,7 +2598,7 @@ class Axl(object):
                     "description": description,
                 }
             )
-            
+
             add_tags.pop("lines")
             if not keep_template_load:
                 add_tags.pop("loadInformation")
@@ -2636,126 +2636,6 @@ class Axl(object):
         add_tags.update(kwargs)
         try:
             return self.client.addPhone(phone=add_tags)
-        except Fault as e:
-            return e
-
-    def add_phone_old(
-        self,
-        name,
-        description="",
-        product="Cisco 7941",
-        device_pool="Default",
-        location="Hub_None",
-        phone_template="Standard 8861 SIP",
-        common_device_config="",
-        css="",
-        aar_css="",
-        subscribe_css="",
-        securityProfileName="",
-        lines=[],
-        dev_class="Phone",
-        protocol="SCCP",
-        softkey_template="Standard User",
-        enable_em="true",
-        em_service_name="Extension Mobility",
-        em_service_url=False,
-        em_url_button_enable=False,
-        em_url_button_index="1",
-        em_url_label="Press here to logon",
-        ehook_enable=1,
-    ):
-        """
-        lines takes a list of Tuples with properties for each line EG:
-
-                                               display                           external
-            DN     partition    display        ascii          label               mask
-        [('77777', 'LINE_PT', 'Jim Smith', 'Jim Smith', 'Jim Smith - 77777', '0294127777')]
-        Add A phone
-        :param name:
-        :param description:
-        :param product:
-        :param device_pool:
-        :param location:
-        :param phone_template:
-        :param common_device_config:
-        :param css:
-        :param aar_css:
-        :param subscribe_css:
-        :param lines:
-        :param dev_class:
-        :param protocol:
-        :param softkey_template:
-        :param enable_em:
-        :param em_service_name:
-        :param em_service_url:
-        :param em_url_button_enable:
-        :param em_url_button_index:
-        :param em_url_label:
-        :param ehook_enable:
-        :return:
-        """
-
-        req = {
-            "name": name,
-            "description": description,
-            "product": product,
-            "class": dev_class,
-            "protocol": protocol,
-            "protocolSide": "User",
-            "commonDeviceConfigName": common_device_config,
-            "commonPhoneConfigName": "Standard Common Phone Profile",
-            "softkeyTemplateName": softkey_template,
-            "phoneTemplateName": phone_template,
-            "devicePoolName": device_pool,
-            "locationName": location,
-            "useTrustedRelayPoint": "Off",
-            "builtInBridgeStatus": "Default",
-            "certificateOperation": "No Pending Operation",
-            "packetCaptureMode": "None",
-            "deviceMobilityMode": "Default",
-            "enableExtensionMobility": enable_em,
-            "callingSearchSpaceName": css,
-            "automatedAlternateRoutingCssName": aar_css,
-            "subscribeCallingSearchSpaceName": subscribe_css,
-            "lines": {"line": []},
-            "services": {"service": []},
-            "vendorConfig": [{"ehookEnable": ehook_enable}],
-        }
-
-        if lines:
-            [
-                req["lines"]["line"].append(
-                    {
-                        "index": lines.index(i) + 1,
-                        "dirn": {"pattern": i[0], "routePartitionName": i[1]},
-                        "display": i[2],
-                        "displayAscii": i[3],
-                        "label": i[4],
-                        "e164Mask": i[5],
-                    }
-                )
-                for i in lines
-            ]
-
-        if em_service_url:
-            req["services"]["service"].append(
-                [
-                    {
-                        "telecasterServiceName": em_service_name,
-                        "name": em_service_name,
-                        "url": "http://{0}:8080/emapp/EMAppServlet?device=#DEVICENAME#&EMCC=#EMCC#".format(
-                            self.cucm
-                        ),
-                    }
-                ]
-            )
-
-        if em_url_button_enable:
-            req["services"]["service"][0].update(
-                {"urlButtonIndex": em_url_button_index, "urlLabel": em_url_label}
-            )
-        try:
-            return self.client.addPhone(req)
         except Fault as e:
             return e
 
@@ -2808,31 +2688,49 @@ class Axl(object):
         except Fault as e:
             return e
 
-    def add_phone_line(self):
+    def add_phone_line(
+        self, dev_name: str, dn: tuple[str, str], position=0, replace=False
+    ):
+        device = self.get_phone(name=dev_name, return_tags=["lines"])
+
+        if (line_list := device["lines"]["line"]) is not None:
+            current_lines = deepcopy([d for d in line_list])
+        else:
+            current_lines = []
+
+        new_line = self.get_directory_number(*dn, return_tags=[])
+
+        if position == 0:
+            current_lines.append(new_line)
+        elif replace and position > 0 and position <= len(position):
+            current_lines[position - 1] = new_line
+        else:
+            current_lines.insert(position - 1, new_line)
+
+        print([])
+
+    def remove_phone_line(self, pattern="", index=0, cascade=False):
         pass
 
-    def remove_phone_line(self, pattern="", index=0, swallow=False):
-        pass
-
-    def change_phone_line(self):
+    def update_phone_line(self):
         pass
 
     def add_phone_speeddials(self):
         pass
 
-    def remove_phone_speeddials(self, pattern="", index=0, swallow=False):
+    def remove_phone_speeddials(self, pattern="", index=0, cascade=False):
         pass
 
-    def change_phone_speeddials(self):
+    def update_phone_speeddials(self):
         pass
 
     def add_phone_blf(self):
         pass
 
-    def remove_phone_blf(self, pattern="", route_partition="", index=0, swallow=False):
+    def remove_phone_blf(self, pattern="", route_partition="", index=0, cascade=False):
         pass
 
-    def change_phone_blf(self):
+    def update_phone_blf(self):
         pass
 
     def get_device_profiles(
