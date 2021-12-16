@@ -31,6 +31,7 @@ from functools import wraps
 from copy import deepcopy
 import inspect
 from termcolor import colored
+from time import sleep
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -3708,6 +3709,43 @@ class Axl(object):
             return self.client.removeCallManagerGroup({"name": name})
         except Fault as e:
             raise AXLFault(e)
+
+    @serialize
+    @check_tags("getLineGroup")
+    def get_line_group(self, name: str, *, return_tags=[]) -> dict:
+        tags = _tag_handler(return_tags)
+        try:
+            return self.client.getLineGroup(name=name, returnedTags=tags)["return"][
+                "lineGroup"
+            ]
+        except Fault as e:
+            raise AXLFault(e)
+
+    def do_reset_line_group_devices(self, lg_name: str, stagger_timer=0.0):
+        try:
+            lg = self.get_line_group(lg_name, return_tags=["members"])
+        except AXLFault as e:
+            raise AXLFaultHandler(f"Could not find Line Group with name '{lg_name}'", e)
+        if lg["members"] is None:
+            print(f"[reset {lg_name} devices]: no devices to reset, skipping")
+
+        for line in lg["members"]["member"]:
+            dn = (
+                line["directoryNumber"]["pattern"],
+                line["directoryNumber"]["routePartitionName"],
+            )
+            line_devices = self.get_directory_number(
+                *dn, return_tags=["associatedDevices"]
+            )["associatedDevices"]
+            if line_devices is None:
+                print(f"(no devices found for {dn}, skipping...)")
+            else:
+                for device_name in line_devices["device"]:
+                    self.do_device_reset(name=device_name)
+            print(f"({dn} complete)")
+            if stagger_timer > 0.0 and line != lg["members"]["member"][-1]:
+                sleep(stagger_timer)
+        print(f"Line Group '{lg_name}' reset complete")
 
 
 def _tag_handler(tags: list) -> dict:
