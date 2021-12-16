@@ -255,23 +255,40 @@ class AXLElement:
         elif (tags_element := self.get("returnedTags")) is None:
             return {}
 
-        def get_element_tree(element):
-            if not element.children:
-                return Nil
-            elif element.type == Choice:
-                return get_element_tree(element.children[0])
-            elif element.type == Sequence:
-                return {c.name: get_element_tree(c) for c in element.children}
-            else:
-                tree_dict: dict = dict()
-                for e in element.children:
-                    if e.type == Choice:
-                        tree_dict[e.children[0].name] = get_element_tree(e.children[0])
-                    else:
-                        tree_dict[e.name] = get_element_tree(e)
-                return tree_dict
+        def nil_to_str(d: dict) -> dict:
+            for name, value in d.items():
+                if type(value) == dict:
+                    nil_to_str(value)
+                elif value == Nil:
+                    d[name] = ""
 
-        return get_element_tree(tags_element)
+        tags_dict = tags_element.to_dict()["returnedTags"]
+        for value in tags_dict.values():
+            if type(value) == dict:
+                nil_to_str(value)
+
+        return tags_dict
+
+        # def get_element_tree(element: "AXLElement"):
+        #     if not element.children:
+        #         if element.parent.name == "returnedTags":
+        #             return Nil
+        #         else:
+        #             return ""
+        #     elif element.type == Choice:
+        #         return get_element_tree(element.children[0])
+        #     elif element.type == Sequence:
+        #         return {c.name: get_element_tree(c) for c in element.children}
+        #     else:
+        #         tree_dict: dict = dict()
+        #         for e in element.children:
+        #             if e.type == Choice:
+        #                 tree_dict[e.children[0].name] = get_element_tree(e.children[0])
+        #             else:
+        #                 tree_dict[e.name] = get_element_tree(e)
+        #         return tree_dict
+
+        # return get_element_tree(tags_element)
 
     def to_dict(self) -> dict:
         if not self.children:
@@ -408,16 +425,18 @@ def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> lis
                 )
         return picked_tree
 
-    tags_tree = AXLElement(__get_element_by_name(z_client, element_name)).get(
-        "returnedTags", None
-    )
-    if tags_tree is None:
+    element_tree = AXLElement(__get_element_by_name(z_client, element_name))
+
+    if element_tree.get("returnedTags", None) is None:
         raise WSDLException(f"Element '{element_name}' has no returnedTags sub-element")
 
-    tags_dict = tags_tree.to_dict()["returnedTags"]
+    tags_dict = element_tree.return_tags()
 
     for tag in tags:
-        if tags_dict.get(tag, None) != Nil:  # complex tag, replace tag list with dict
+        if tags_dict.get(tag, None) not in (
+            Nil,
+            "",
+        ):  # complex tag, replace tag list with dict
             return [tags_in_tree(tags_dict, tags)]
     else:
         return tags
