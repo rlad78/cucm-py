@@ -548,7 +548,7 @@ class Axl(object):
 
         return parsed_data
 
-    def sql_update(self, query: str) -> Union[dict, Fault]:
+    def sql_update(self, query: str) -> dict:
         """Run an update on the UCM SQL DB.
 
         Parameters
@@ -617,9 +617,7 @@ class Axl(object):
 
     @serialize
     @operation_tag("doChangeDNDStatus")
-    def do_change_dnd_status(
-        self, user_id: str, dnd_enabled: bool
-    ) -> Union[dict, Fault]:
+    def do_change_dnd_status(self, user_id: str, dnd_enabled: bool) -> dict:
         """Turns on/off DND for all devices associated with a given user.
 
         Parameters
@@ -2166,7 +2164,7 @@ class Axl(object):
         route_partition: str,
         *,
         return_tags=["pattern", "description", "routePartitionName"],
-    ) -> Union[dict, Fault]:
+    ) -> dict:
         """Finds the DN matching the provided pattern and Route Partition.
 
         Parameters
@@ -2298,9 +2296,7 @@ class Axl(object):
 
     @serialize
     @operation_tag("removeLine")
-    def delete_directory_number(
-        self, uuid="", pattern="", route_partition=""
-    ) -> Union[dict, Fault]:
+    def delete_directory_number(self, uuid="", pattern="", route_partition="") -> dict:
         """Attempts to delete a DN.
 
         Parameters
@@ -2587,7 +2583,7 @@ class Axl(object):
         cert_operation="No Pending Operation",
         mobility_mode="Default",
         **kwargs,
-    ) -> Union[dict, Fault]:
+    ) -> dict:
         if use_phone_template:
             found_template = self.get_phone(name=use_phone_template)
             add_tags = self._extract_template("addPhone", found_template, child="phone")
