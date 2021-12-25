@@ -112,7 +112,8 @@ def check_tags(element_name: str):
             if cfg.DISABLE_CHECK_TAGS:
                 return func(*args, **kwargs)
 
-            if type(args[0]) != Axl:
+            # if type(args[0]) != Axl:
+            if not issubclass(type(args[0]), Axl):
                 raise DumbProgrammerException(
                     f"Forgot to include self in {func.__name__}!!!!"
                 )
