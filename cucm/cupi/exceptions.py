@@ -33,3 +33,13 @@ class CupiHTTPError(APIError):
         except JSONDecodeError:
             pass
         return s
+
+
+class DNAlreadyExists(Exception):
+    def __init__(self, dn: str, username: str, *args: object) -> None:
+        self.dn = dn
+        self.user = username
+        super().__init__(*args)
+
+    def __str__(self) -> str:
+        return f"{self.dn} is already in use by {self.user}"

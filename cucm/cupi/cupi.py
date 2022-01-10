@@ -2,7 +2,7 @@ from json.decoder import JSONDecodeError
 from requests.auth import HTTPBasicAuth
 from requests.models import HTTPError, Response
 from requests.sessions import Session
-from .exceptions import APIError, CupiHTTPError, UserNotFound
+from .exceptions import APIError, CupiHTTPError, DNAlreadyExists, UserNotFound
 
 
 class Cupi:
@@ -82,11 +82,23 @@ class Cupi:
 
         return self._post(uri, {"templateAlias": user_template}, body)
 
-    def update_pin(self, username: str, pin: str, *, user_must_change=False):
+    def update_pin(self, username: str, pin: str, *, user_must_change=False) -> dict:
         user = self.get_user(username)
         uri = f"users/{user['ObjectId']}/credential/pin"
 
         body = {"Credentials": pin, "CredMustChange": user_must_change}
+
+        return self._put(uri, body=body)
+
+    def update_dn(self, username: str, dn: str) -> dict:
+        # check if dn is in use
+        results = self._get("users", {"query": f"(DtmfAccessId is {dn})"})
+        if int(results["@total"]) == 1:
+            raise DNAlreadyExists(dn, results["User"]["Alias"])
+
+        user = self.get_user(username)
+        uri = f"users/{user['ObjectId']}"
+        body = {"DtmfAccessId": dn}
 
         return self._put(uri, body=body)
 
