@@ -32,6 +32,7 @@ from copy import deepcopy
 import inspect
 from termcolor import colored
 from time import sleep
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -3722,14 +3723,32 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
-    def do_reset_line_group_devices(self, lg_name: str, stagger_timer=0.0):
+    @serialize_list
+    @check_tags("listLineGroup")
+    def list_line_groups(self, *, return_tags=[]) -> list[dict]:
+        tags = _tag_handler(return_tags)
+        try:
+            return self.client.listLineGroup(searchCriteria="%", returnedTags=tags)[
+                "return"
+            ]["lineGroup"]
+        except TypeError:
+            return []
+        except Fault as e:
+            raise AXLFault(e)
+
+    def do_reset_line_group_devices(
+        self, lg_name: str, stagger_timer=0.0, verbose=True
+    ) -> int:
         try:
             lg = self.get_line_group(lg_name, return_tags=["members"])
         except AXLFault as e:
             raise AXLFaultHandler(f"Could not find Line Group with name '{lg_name}'", e)
         if lg["members"] is None:
-            print(f"[reset {lg_name} devices]: no devices to reset, skipping")
+            if verbose:
+                print(f"[reset {lg_name} devices]: no devices to reset, skipping")
+            return None
 
+        device_count: int = 0
         for line in lg["members"]["member"]:
             dn = (
                 line["directoryNumber"]["pattern"],
@@ -3739,14 +3758,42 @@ class Axl(object):
                 *dn, return_tags=["associatedDevices"]
             )["associatedDevices"]
             if line_devices is None:
-                print(f"(no devices found for {dn}, skipping...)")
+                if verbose:
+                    print(f"(no devices found for {dn}, skipping...)")
             else:
                 for device_name in line_devices["device"]:
                     self.do_device_reset(name=device_name)
+                    device_count += 1
             print(f"({dn} complete)")
             if stagger_timer > 0.0 and line != lg["members"]["member"][-1]:
                 sleep(stagger_timer)
-        print(f"Line Group '{lg_name}' reset complete")
+        if verbose:
+            print(f"Line Group '{lg_name}' reset complete")
+        return device_count
+
+    def do_reset_all_line_groups_devices(self, stagger_timer=1.0) -> None:
+        lgs = [g["name"] for g in self.list_line_groups(return_tags=["name"])]
+
+        print(f"Resetting devices in {len(lgs)} Line Groups...")
+        with ThreadPoolExecutor(max_workers=100) as ex:
+            lg_futs = {
+                ex.submit(
+                    self.do_reset_line_group_devices,
+                    lg,
+                    stagger_timer=stagger_timer,
+                    verbose=False,
+                ): lg
+                for lg in lgs
+            }
+            for i, f in enumerate(as_completed(lg_futs)):
+                if (exc := f.exception()) is not None:
+                    print(
+                        f"[{i}/{len(lgs)}] LG '{lg_futs[f]}' raised an exception: {exc}"  # TODO: color this red
+                    )
+                else:
+                    print(
+                        f"[{i}/{len(lgs)}] Reset '{lg_futs[f]}' with {f.result()} devices."
+                    )
 
 
 def _tag_handler(tags: list) -> dict:
