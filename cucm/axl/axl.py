@@ -33,6 +33,7 @@ import inspect
 from termcolor import colored
 from time import sleep
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -376,6 +377,93 @@ class Axl(object):
                     "routePartitionName": route_partition,
                 }
             }
+
+    def _base_soap_call(
+        self,
+        element_name: str,
+        msg_kwargs: dict,
+        wanted_keys: list[str],
+    ):
+        try:
+            result = getattr(self.client, element_name)(**msg_kwargs)
+        except AttributeError:
+            raise DumbProgrammerException(f"AXL has no element named {element_name}")
+        except Fault as e:
+            raise AXLFault(e)
+
+        if type(result) == list:
+            # ignore wanted keys since it's not a mapping
+            return result
+
+        for key in wanted_keys:
+            try:
+                result = result[key]
+            except TypeError:
+                raise DumbProgrammerException(
+                    f"({element_name}, {wanted_keys=}) nothing to extract at '{key}'"
+                )
+            except KeyError:
+                progress = (
+                    "['" + "']['".join(wanted_keys[: wanted_keys.index(key)]) + "']"
+                )
+                raise DumbProgrammerException(
+                    f"({element_name}, {wanted_keys=}) does not contain '{key}'{' at ' + progress if wanted_keys.index(key) > 0 else ''}"
+                )
+        return result
+
+    def _base_soap_call_uuid(
+        self,
+        element_name: str,
+        msg_kwargs: dict,
+        wanted_keys: list[str],
+        non_uuid_value="name",
+    ):
+        try:
+            uuid_value = msg_kwargs["uuid"]
+        except KeyError:
+            raise DumbProgrammerException(
+                f"({element_name}) 'uuid' not supplied as a kwarg"
+            )
+        if uuid_value:
+            return self._base_soap_call(
+                element_name,
+                {k: v for k, v in msg_kwargs.items() if k != non_uuid_value},
+                wanted_keys,
+            )
+        else:
+            return self._base_soap_call(
+                element_name,
+                {k: v for k, v in msg_kwargs.items() if k != "uuid"},
+                wanted_keys,
+            )
+
+    def _multithread(
+        self,
+        method: Callable,
+        kwargs_list: list[dict],
+        catagorize_by=None,
+        verbose=False,
+    ):
+        if verbose:
+            print(f"Starting {method.__name__} multithreaded operation...")
+            pbar = tqdm(total=len(kwargs_list))
+
+        with ThreadPoolExecutor(max_workers=100) as ex:
+            axl_futs = {ex.submit(method, **kw): kw for kw in kwargs_list}
+            for fut in as_completed(axl_futs):
+                if (exc := fut.exception()) is not None:
+                    ex.shutdown(wait=False, cancel_futures=True)
+                    raise MultithreadException(method.__name__, axl_futs[fut], exc)
+                if verbose:
+                    pbar.update(1)
+
+        if verbose:
+            pbar.close()
+
+        if catagorize_by is not None:
+            return {kw[catagorize_by]: f.result() for f, kw in axl_futs.items()}
+        else:
+            return [f.result() for f in axl_futs.keys()]
 
     def print_axl_arguments(
         self, method_name: str, show_required_only=False, show_member_types=False
@@ -2566,6 +2654,40 @@ class Axl(object):
         else:
             raise InvalidArguments("Must provide a value for either 'uuid' or 'name'")
 
+    @serialize_list
+    def get_phone_lines(
+        self, uuid="", name="", main_line_only=False, *, return_tags=[]
+    ):
+        dev = self.get_phone(uuid=uuid, name=name, return_tags=["lines"])
+        if dev["lines"] is None:
+            return []
+
+        lines = [
+            (dn["dirn"]["pattern"], dn["dirn"]["routePartitionName"])
+            for dn in dev["lines"]["line"]
+        ]
+
+        if main_line_only or len(lines) == 1:
+            return [
+                self.get_directory_number(
+                    pattern=lines[0][0],
+                    route_partition=lines[0][1],
+                    return_tags=return_tags,
+                )
+            ]
+        else:
+            return self._multithread(
+                method=self.get_directory_number,
+                kwargs_list=[
+                    {
+                        "pattern": line[0],
+                        "route_partition": line[1],
+                        "return_tags": return_tags,
+                    }
+                    for line in lines
+                ],
+            )
+
     @check_arguments("addPhone", child="phone")
     def add_phone(
         self,
@@ -3711,6 +3833,79 @@ class Axl(object):
             return self.client.removeCallManagerGroup({"name": name})
         except Fault as e:
             raise AXLFault(e)
+
+    @serialize
+    @check_tags("getGateway")
+    def get_gateway(self, device_name="", uuid="", *, return_tags=[]):
+        tags = _tag_handler(return_tags)
+        return self._base_soap_call_uuid(
+            element_name="getGateway",
+            msg_kwargs={
+                "domainName": device_name,
+                "uuid": uuid,
+                "returnedTags": tags,
+            },
+            wanted_keys=["return", "gateway"],
+            non_uuid_value="domainName",
+        )
+
+    @serialize_list
+    def get_gateway_lines(
+        self,
+        device_name="",
+        uuid="",
+        verbose=False,
+        *,
+        return_tags=[],
+    ):
+        gw = self.get_gateway(device_name, uuid, return_tags=["domainName"])
+        mac_short = gw["domainName"].replace("SKIGW", "")
+        an_devices = self.get_phones(name=f"AN{mac_short}%", return_tags=["name"])
+
+        if not an_devices:
+            return []
+
+        lines = self._multithread(
+            self.get_phone_lines,
+            [
+                {
+                    "name": dev["name"],
+                    "main_line_only": True,
+                    "return_tags": return_tags,
+                }
+                for dev in an_devices
+            ],
+            catagorize_by="name",
+            verbose=verbose,
+        )
+
+        results = []
+        for dev in an_devices:
+            line = lines.get(dev["name"], None)
+            if not line:  # accounts for empty list and None value
+                results.append({})
+            else:
+                results.append(line[0])
+
+        return results
+
+    def add_gateway(self, mac: str, description: str, model: str, cmg_group: str):
+        gateway = {
+            "domainName": mac[-10:] if len(mac) >= 12 else mac,
+            "description": description,
+            "product": model,
+            "callManagerGroupName": cmg_group,
+        }
+
+        if model == "VG204":
+            subunit = [{"index": 0, "product": "4FXS-SCCP", "beginPort": 0}]
+            unit = [{"index": 0, "product": "ANALOG", "subunits": {"subunit": subunit}}]
+            gateway["units"] = {"unit": unit}
+        else:
+            raise Exception("Sorry, this model of gateway is not supported yet.")
+
+        # TODO: FINISH THE REST
+        # self._base_soap_call()
 
     @serialize
     @check_tags("getLineGroup")

@@ -249,3 +249,17 @@ class UCMVersionInvalid(Exception):
 
     def __str__(self) -> str:
         return f"An invalid CUCM version was provided: {self.version}"
+
+
+class MultithreadException(Exception):
+    def __init__(
+        self, method_name: str, problem_kwargs: dict, resulting_exc, *args: object
+    ) -> None:
+        self.meth = method_name
+        self.kw = problem_kwargs
+        self.res_exc = resulting_exc
+        super().__init__(*args)
+
+    def __str__(self) -> str:
+        desc = f"The following exception was caused by {self.meth} with these arguments: {self.kw}"
+        return desc + "\n\n" + self.res_exc.__str__()
