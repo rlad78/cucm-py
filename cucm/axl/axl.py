@@ -353,30 +353,30 @@ class Axl(object):
 
         return result_data
 
-    def _line_template(self, pattern: str, route_partition: str) -> dict:
-        if not pattern:
-            raise ValueError("'pattern' cannot be blank")
-        elif not route_partition:
-            raise ValueError("'route_partition' cannot be blank")
+    # def _line_template(self, pattern: str, route_partition: str) -> dict:
+    #     if not pattern:
+    #         raise ValueError("'pattern' cannot be blank")
+    #     elif not route_partition:
+    #         raise ValueError("'route_partition' cannot be blank")
 
-        dn_exists_check = self.get_directory_number(
-            pattern, route_partition, return_tags=["pattern", "routePartitionName"]
-        )
-        if issubclass(type(dn_exists_check), Fault):
-            if (
-                not "Line" in dn_exists_check.message
-                or route_partition not in dn_exists_check.message
-            ):
-                raise WSDLException(dn_exists_check.message)
-            else:
-                pass  # * make new "line" element
-        else:
-            return {
-                "lineIdentifier": {
-                    "directoryNumber": pattern,
-                    "routePartitionName": route_partition,
-                }
-            }
+    #     dn_exists_check = self.get_directory_number(
+    #         pattern, route_partition, return_tags=["pattern", "routePartitionName"]
+    #     )
+    #     if issubclass(type(dn_exists_check), Fault):
+    #         if (
+    #             not "Line" in dn_exists_check.message
+    #             or route_partition not in dn_exists_check.message
+    #         ):
+    #             raise WSDLException(dn_exists_check.message)
+    #         else:
+    #             pass  # * make new "line" element
+    #     else:
+    #         return {
+    #             "lineIdentifier": {
+    #                 "directoryNumber": pattern,
+    #                 "routePartitionName": route_partition,
+    #             }
+    #         }
 
     def _base_soap_call(
         self,
@@ -2282,108 +2282,154 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    @check_arguments("addLine", child="line")
     def add_directory_number(
         self,
-        pattern,
-        partition="",
-        description="",
-        alerting_name="",
-        ascii_alerting_name="",
-        shared_line_css="",
-        aar_neighbourhood="",
-        call_forward_css="",
-        vm_profile_name="NoVoiceMail",
-        aar_destination_mask="",
-        call_forward_destination="",
-        forward_all_to_vm="false",
-        forward_all_destination="",
-        forward_to_vm="false",
+        pattern: str,
+        route_partition: str,
+        *,
+        template_name=None,
+        template_route_partition=None,
+        **kwargs,
     ):
-        """
-        Add a directory number
-        :param pattern: Directory number
-        :param partition: Route partition name
-        :param description: Directory number description
-        :param alerting_name: Alerting name
-        :param ascii_alerting_name: ASCII alerting name
-        :param shared_line_css: Calling search space
-        :param aar_neighbourhood: AAR group
-        :param call_forward_css: Call forward calling search space
-        :param vm_profile_name: Voice mail profile
-        :param aar_destination_mask: AAR destination mask
-        :param call_forward_destination: Call forward destination
-        :param forward_all_to_vm: Forward all to voice mail checkbox
-        :param forward_all_destination: Forward all destination
-        :param forward_to_vm: Forward to voice mail checkbox
-        :return: result dictionary
-        """
-        try:
-            return self.client.addLine(
-                {
-                    "pattern": pattern,
-                    "routePartitionName": partition,
-                    "description": description,
-                    "alertingName": alerting_name,
-                    "asciiAlertingName": ascii_alerting_name,
-                    "voiceMailProfileName": vm_profile_name,
-                    "shareLineAppearanceCssName": shared_line_css,
-                    "aarNeighborhoodName": aar_neighbourhood,
-                    "aarDestinationMask": aar_destination_mask,
-                    "usage": "Device",
-                    "callForwardAll": {
-                        "forwardToVoiceMail": forward_all_to_vm,
-                        "callingSearchSpaceName": call_forward_css,
-                        "destination": forward_all_destination,
-                    },
-                    "callForwardBusy": {
-                        "forwardToVoiceMail": forward_to_vm,
-                        "callingSearchSpaceName": call_forward_css,
-                        "destination": call_forward_destination,
-                    },
-                    "callForwardBusyInt": {
-                        "forwardToVoiceMail": forward_to_vm,
-                        "callingSearchSpaceName": call_forward_css,
-                        "destination": call_forward_destination,
-                    },
-                    "callForwardNoAnswer": {
-                        "forwardToVoiceMail": forward_to_vm,
-                        "callingSearchSpaceName": call_forward_css,
-                        "destination": call_forward_destination,
-                    },
-                    "callForwardNoAnswerInt": {
-                        "forwardToVoiceMail": forward_to_vm,
-                        "callingSearchSpaceName": call_forward_css,
-                        "destination": call_forward_destination,
-                    },
-                    "callForwardNoCoverage": {
-                        "forwardToVoiceMail": forward_to_vm,
-                        "callingSearchSpaceName": call_forward_css,
-                        "destination": call_forward_destination,
-                    },
-                    "callForwardNoCoverageInt": {
-                        "forwardToVoiceMail": forward_to_vm,
-                        "callingSearchSpaceName": call_forward_css,
-                        "destination": call_forward_destination,
-                    },
-                    "callForwardOnFailure": {
-                        "forwardToVoiceMail": forward_to_vm,
-                        "callingSearchSpaceName": call_forward_css,
-                        "destination": call_forward_destination,
-                    },
-                    "callForwardNotRegistered": {
-                        "forwardToVoiceMail": forward_to_vm,
-                        "callingSearchSpaceName": call_forward_css,
-                        "destination": call_forward_destination,
-                    },
-                    "callForwardNotRegisteredInt": {
-                        "forwardToVoiceMail": forward_to_vm,
-                        "callingSearchSpaceName": call_forward_css,
-                        "destination": call_forward_destination,
-                    },
-                }
+        # check template
+        if type(template_name) == str and type(template_route_partition) == str:
+            try:
+                template_line = self.get_directory_number(
+                    template_name, template_route_partition, return_tags=[]
+                )
+            except AXLFault as e:
+                if "Line was not found" in e.message:
+                    raise AXLError(
+                        f"Template '{template_name}' in {template_route_partition} could not be found",
+                        e,
+                    )
+                else:
+                    raise e
+            template_line.update(
+                {"pattern": pattern, "routePartitionName": route_partition, **kwargs}
             )
-        except Fault as e:
-            raise AXLFault(e)
+            # TODO: Got to remove None values AND keys from template, messes things up
+            return self._base_soap_call("addLine", {"line": template_line}, [])
+
+        # check pattern validity
+        if not re.match(r"^[0-9\?\!\\\[\]\+\-\*\^\#X]+$"):
+            raise InvalidArguments(f"Invalid pattern '{pattern}'")
+
+        # check route partition exists
+        try:
+            self.get_route_partition(name=route_partition, return_tags=["name"])
+        except AXLFault as e:
+            raise InvalidArguments(f"Route Partition {route_partition} does not exist")
+
+        return self._base_soap_call(
+            "addLine",
+            {"pattern": pattern, "routePartitionName": route_partition, **kwargs},
+            [],
+        )
+
+    # def add_directory_number(
+    #     self,
+    #     pattern,
+    #     partition="",
+    #     description="",
+    #     alerting_name="",
+    #     ascii_alerting_name="",
+    #     shared_line_css="",
+    #     aar_neighbourhood="",
+    #     call_forward_css="",
+    #     vm_profile_name="NoVoiceMail",
+    #     aar_destination_mask="",
+    #     call_forward_destination="",
+    #     forward_all_to_vm="false",
+    #     forward_all_destination="",
+    #     forward_to_vm="false",
+    # ):
+    #     """
+    #     Add a directory number
+    #     :param pattern: Directory number
+    #     :param partition: Route partition name
+    #     :param description: Directory number description
+    #     :param alerting_name: Alerting name
+    #     :param ascii_alerting_name: ASCII alerting name
+    #     :param shared_line_css: Calling search space
+    #     :param aar_neighbourhood: AAR group
+    #     :param call_forward_css: Call forward calling search space
+    #     :param vm_profile_name: Voice mail profile
+    #     :param aar_destination_mask: AAR destination mask
+    #     :param call_forward_destination: Call forward destination
+    #     :param forward_all_to_vm: Forward all to voice mail checkbox
+    #     :param forward_all_destination: Forward all destination
+    #     :param forward_to_vm: Forward to voice mail checkbox
+    #     :return: result dictionary
+    #     """
+    #     try:
+    #         return self.client.addLine(
+    #             {
+    #                 "pattern": pattern,
+    #                 "routePartitionName": partition,
+    #                 "description": description,
+    #                 "alertingName": alerting_name,
+    #                 "asciiAlertingName": ascii_alerting_name,
+    #                 "voiceMailProfileName": vm_profile_name,
+    #                 "shareLineAppearanceCssName": shared_line_css,
+    #                 "aarNeighborhoodName": aar_neighbourhood,
+    #                 "aarDestinationMask": aar_destination_mask,
+    #                 "usage": "Device",
+    #                 "callForwardAll": {
+    #                     "forwardToVoiceMail": forward_all_to_vm,
+    #                     "callingSearchSpaceName": call_forward_css,
+    #                     "destination": forward_all_destination,
+    #                 },
+    #                 "callForwardBusy": {
+    #                     "forwardToVoiceMail": forward_to_vm,
+    #                     "callingSearchSpaceName": call_forward_css,
+    #                     "destination": call_forward_destination,
+    #                 },
+    #                 "callForwardBusyInt": {
+    #                     "forwardToVoiceMail": forward_to_vm,
+    #                     "callingSearchSpaceName": call_forward_css,
+    #                     "destination": call_forward_destination,
+    #                 },
+    #                 "callForwardNoAnswer": {
+    #                     "forwardToVoiceMail": forward_to_vm,
+    #                     "callingSearchSpaceName": call_forward_css,
+    #                     "destination": call_forward_destination,
+    #                 },
+    #                 "callForwardNoAnswerInt": {
+    #                     "forwardToVoiceMail": forward_to_vm,
+    #                     "callingSearchSpaceName": call_forward_css,
+    #                     "destination": call_forward_destination,
+    #                 },
+    #                 "callForwardNoCoverage": {
+    #                     "forwardToVoiceMail": forward_to_vm,
+    #                     "callingSearchSpaceName": call_forward_css,
+    #                     "destination": call_forward_destination,
+    #                 },
+    #                 "callForwardNoCoverageInt": {
+    #                     "forwardToVoiceMail": forward_to_vm,
+    #                     "callingSearchSpaceName": call_forward_css,
+    #                     "destination": call_forward_destination,
+    #                 },
+    #                 "callForwardOnFailure": {
+    #                     "forwardToVoiceMail": forward_to_vm,
+    #                     "callingSearchSpaceName": call_forward_css,
+    #                     "destination": call_forward_destination,
+    #                 },
+    #                 "callForwardNotRegistered": {
+    #                     "forwardToVoiceMail": forward_to_vm,
+    #                     "callingSearchSpaceName": call_forward_css,
+    #                     "destination": call_forward_destination,
+    #                 },
+    #                 "callForwardNotRegisteredInt": {
+    #                     "forwardToVoiceMail": forward_to_vm,
+    #                     "callingSearchSpaceName": call_forward_css,
+    #                     "destination": call_forward_destination,
+    #                 },
+    #             }
+    #         )
+    #     except Fault as e:
+    #         raise AXLFault(e)
 
     @serialize
     @operation_tag("removeLine")
@@ -2467,6 +2513,16 @@ class Axl(object):
             raise InvalidArguments(
                 "If not using a uuid, both pattern and route_partition must be provided."
             )
+
+    @serialize
+    @check_tags("getRoutePartition")
+    def get_route_partition(self, name="", uuid="", *, return_tags=[]) -> dict:
+        tags = _tag_handler(return_tags)
+        return self._base_soap_call_uuid(
+            "getRoutePartition",
+            {"name": name, "uuid": uuid, "returnedTags": tags},
+            ["return", "routePartition"],
+        )
 
     def get_cti_route_points(self, tagfilter={"name": "", "description": ""}):
         """
@@ -3889,23 +3945,34 @@ class Axl(object):
 
         return results
 
-    def add_gateway(self, mac: str, description: str, model: str, cmg_group: str):
+    def add_gateway(
+        self, mac: str, description: str, model: str, protocol: str, cmg_group: str
+    ):
+        if protocol.upper() not in ("SCCP", "MGCP"):
+            raise InvalidArguments(f"{protocol} is not a valid gateway protocol")
+        if len(mac) not in (10, 12):
+            raise InvalidArguments(
+                f"mac must be either full 12-digit MAC address or first 10-digits ({mac=})"
+            )
+
         gateway = {
-            "domainName": mac[-10:] if len(mac) >= 12 else mac,
             "description": description,
             "product": model,
+            "protocol": protocol.upper(),
             "callManagerGroupName": cmg_group,
         }
 
         if model == "VG204":
+            gateway["domainName"] = "SKIGW" + (mac if len(mac) == 10 else mac[-10:])
             subunit = [{"index": 0, "product": "4FXS-SCCP", "beginPort": 0}]
             unit = [{"index": 0, "product": "ANALOG", "subunits": {"subunit": subunit}}]
             gateway["units"] = {"unit": unit}
         else:
-            raise Exception("Sorry, this model of gateway is not supported yet.")
+            raise InvalidArguments(
+                f"Sorry, this model of gateway is not supported yet {model}"
+            )
 
-        # TODO: FINISH THE REST
-        # self._base_soap_call()
+        return self._base_soap_call("addGateway", {"gateway": gateway}, [])
 
     @serialize
     @check_tags("getLineGroup")
@@ -4083,3 +4150,18 @@ def filter_empty_kwargs(all_args: dict, arg_renames: dict = {}) -> dict:
         if value == Empty:
             args_copy[arg] = ""
     return args_copy
+
+
+def format_template(template_item) -> None:
+    if type(template_item) != dict:
+        template_item = serialize_object(template_item, dict)
+
+    class notFound:
+        pass
+
+    for key, value in template_item.items():
+        if type(value) == dict:
+            if (stored_value := value.get("_value_1", notFound)) is notFound:
+                template_item[key] = stored_value
+            else:
+                format_template(value)
