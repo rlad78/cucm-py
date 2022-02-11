@@ -13,9 +13,9 @@ DISABLE_CHECK_TAGS = False
 DISABLE_CHECK_ARGS = False
 
 
-def turn_off_serializer() -> None:
-    global DISABLE_SERIALIZER
-    DISABLE_SERIALIZER = True
+# def turn_off_serializer() -> None:
+#     global DISABLE_SERIALIZER
+#     DISABLE_SERIALIZER = True
 
 
 def turn_off_tags_checker() -> None:
