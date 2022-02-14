@@ -4173,18 +4173,3 @@ def filter_empty_kwargs(all_args: dict, arg_renames: dict = {}) -> dict:
         if value == Empty:
             args_copy[arg] = ""
     return args_copy
-
-
-def format_template(template_item) -> None:
-    if type(template_item) != dict:
-        template_item = serialize_object(template_item, dict)
-
-    class notFound:
-        pass
-
-    for key, value in template_item.items():
-        if type(value) == dict:
-            if (stored_value := value.get("_value_1", notFound)) is notFound:
-                template_item[key] = stored_value
-            else:
-                format_template(value)
