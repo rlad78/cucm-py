@@ -353,6 +353,29 @@ class Axl(object):
 
         return result_data
 
+    def _from_phone_template(self, template_name: str, **kwargs) -> dict:
+        template_data = self.get_phone(name=template_name)
+        template_data.update({"class": "Phone"}, **kwargs)
+        for value in ("lines", "loadInformation", "versionStamp"):
+            if value in template_data:
+                del template_data[value]
+
+        result = self._extract_template("addPhone", template_data, "phone")
+        return result
+
+    def _from_line_template(
+        self, template_name: str, template_route_partition: str, **kwargs
+    ) -> dict:
+        template_data = self.get_directory_number(
+            pattern=template_name,
+            route_partition=template_route_partition,
+            return_tags=[],
+        )
+        template_data.update({"active": "true", "usage": Nil}, **kwargs)
+
+        result = self._extract_template("addLine", template_data, "line")
+        return result
+
     # def _line_template(self, pattern: str, route_partition: str) -> dict:
     #     if not pattern:
     #         raise ValueError("'pattern' cannot be blank")
