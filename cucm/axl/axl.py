@@ -50,8 +50,8 @@ def serialize(func: TCallable) -> TCallable:
 
         if r_value is None:
             return dict()
-        # elif issubclass(type(r_value), Exception):
-        #     raise AXLFault(r_value)
+        elif issubclass(type(r_value), Fault):
+            raise AXLFault(r_value)
         elif (
             "return_tags" not in kwargs
             and (
