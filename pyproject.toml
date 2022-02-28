@@ -24,6 +24,7 @@ black = "^21.9b0"
 ipykernel = "^6.4.1"
 xmlschema = "^1.7.1"
 pytest = "^6.2.5"
+notebook = "^6.4.8"
 
 [tool.poetry.scripts]
 test_connect = "cucm.debug:axl_connect"
