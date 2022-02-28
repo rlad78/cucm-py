@@ -38,6 +38,10 @@ from tqdm import tqdm
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+########################
+# ----- DECORATORS -----
+########################
+
 TCallable = TypeVar("TCallable", bound=Callable)
 
 
@@ -199,6 +203,11 @@ def check_arguments(element_name: str, child=None):
     return check_argument_deorator
 
 
+###################
+# ----- CLASS -----
+###################
+
+
 class Axl(object):
     def __init__(
         self,
@@ -301,6 +310,10 @@ class Axl(object):
         if verbose:
             print("Connection to AXL service established!\n")
 
+    # *******************************
+    # ----- [TEMPLATE FETCHING] -----
+    # *******************************
+
     def __extract_template(self, element_name: str, template: dict, child="") -> dict:
         def is_removable(branch: dict) -> bool:
             for value in branch.values():
@@ -376,30 +389,9 @@ class Axl(object):
         result = self.__extract_template("addLine", template_data, "line")
         return result
 
-    # def _line_template(self, pattern: str, route_partition: str) -> dict:
-    #     if not pattern:
-    #         raise ValueError("'pattern' cannot be blank")
-    #     elif not route_partition:
-    #         raise ValueError("'route_partition' cannot be blank")
-
-    #     dn_exists_check = self.get_directory_number(
-    #         pattern, route_partition, return_tags=["pattern", "routePartitionName"]
-    #     )
-    #     if issubclass(type(dn_exists_check), Fault):
-    #         if (
-    #             not "Line" in dn_exists_check.message
-    #             or route_partition not in dn_exists_check.message
-    #         ):
-    #             raise WSDLException(dn_exists_check.message)
-    #         else:
-    #             pass  # * make new "line" element
-    #     else:
-    #         return {
-    #             "lineIdentifier": {
-    #                 "directoryNumber": pattern,
-    #                 "routePartitionName": route_partition,
-    #             }
-    #         }
+    # *******************************
+    # ----- [BASIC SOAP CALLS] -----
+    # *******************************
 
     def _base_soap_call(
         self,
@@ -459,6 +451,10 @@ class Axl(object):
                 {k: v for k, v in msg_kwargs.items() if k != "uuid"},
                 wanted_keys,
             )
+
+    # *************************
+    # ----- [OTHER TOOLS] -----
+    # *************************
 
     def _multithread(
         self,
@@ -548,46 +544,9 @@ class Axl(object):
                     show_types=show_member_types,
                 )
 
-    @serialize_list
-    @check_tags(element_name="listLocation")
-    def get_locations(
-        self,
-        name="%",
-        *,
-        return_tags=[
-            "name",
-            "withinAudioBandwidth",
-            "withinVideoBandwidth",
-            "withinImmersiveKbits",
-        ],
-    ) -> Union[list[dict], None]:
-        """Get all locations created in UCM
-
-        Parameters
-        ----------
-        name : str, optional
-            Name to search against all locations, by default "%", the SQL "any" wildcard.
-        return_tags : list, optional, keyword-only
-            The categories to be returned, by default [ "name", "withinAudioBandwidth", "withinVideoBandwidth", "withinImmersiveKbits", ]. If an empty list is provided, all categories will be returned.
-
-        Returns
-        -------
-        list[dict]
-            A list of all location info.
-        Fault
-            The error returned from AXL, if one occured.
-        """
-        if return_tags and type(return_tags[0]) == dict:
-            tags = return_tags[0]
-        elif return_tags:
-            tags = {t: "" for t in return_tags}
-
-        try:
-            return self.client.listLocation({"name": name}, returnedTags=tags,)[
-                "return"
-            ]["location"]
-        except Fault as e:
-            raise AXLFault(e)
+    #########################
+    # ===== SQL QUERIES =====
+    #########################
 
     def run_sql_query(self, query: str) -> dict:
         """Legacy function. Use sql_query() instead.
@@ -682,6 +641,10 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    ##################
+    # ===== LDAP =====
+    ##################
+
     @serialize_list
     @check_tags("listLdapDirectory")
     def get_ldap_dir(
@@ -728,6 +691,10 @@ class Axl(object):
             return self.client.doLdapSync(uuid=uuid, sync=True)
         except Fault as e:
             raise AXLFault(e)
+
+    ############################
+    # ===== DEVICE ACTIONS =====
+    ############################
 
     @serialize
     @operation_tag("doChangeDNDStatus")
@@ -820,6 +787,51 @@ class Axl(object):
                 return self.client.resetSipTrunk(uuid=uuid)
             except Fault as e:
                 return e
+
+    #######################
+    # ===== LOCATIONS =====
+    #######################
+
+    @serialize_list
+    @check_tags(element_name="listLocation")
+    def get_locations(
+        self,
+        name="%",
+        *,
+        return_tags=[
+            "name",
+            "withinAudioBandwidth",
+            "withinVideoBandwidth",
+            "withinImmersiveKbits",
+        ],
+    ) -> Union[list[dict], None]:
+        """Get all locations created in UCM
+
+        Parameters
+        ----------
+        name : str, optional
+            Name to search against all locations, by default "%", the SQL "any" wildcard.
+        return_tags : list, optional, keyword-only
+            The categories to be returned, by default [ "name", "withinAudioBandwidth", "withinVideoBandwidth", "withinImmersiveKbits", ]. If an empty list is provided, all categories will be returned.
+
+        Returns
+        -------
+        list[dict]
+            A list of all location info.
+        Fault
+            The error returned from AXL, if one occured.
+        """
+        if return_tags and type(return_tags[0]) == dict:
+            tags = return_tags[0]
+        elif return_tags:
+            tags = {t: "" for t in return_tags}
+
+        try:
+            return self.client.listLocation({"name": name}, returnedTags=tags,)[
+                "return"
+            ]["location"]
+        except Fault as e:
+            raise AXLFault(e)
 
     @serialize
     @operation_tag("getLocation")
@@ -960,6 +972,10 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    #####################
+    # ===== REGIONS =====
+    #####################
+
     @serialize_list
     @check_tags("listRegion")
     def get_regions(self, *, return_tags=[]) -> Union[list[dict], Fault]:
@@ -1085,6 +1101,10 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    ##################
+    # ===== SRST =====
+    ##################
+
     def get_srsts(self, tagfilter={"uuid": ""}):
         """
         Get all SRST details
@@ -1152,6 +1172,10 @@ class Axl(object):
             return self.client.updateSrst(name=name, newName=newName)
         except Fault as e:
             raise AXLFault(e)
+
+    ##########################
+    # ===== DEVICE POOLS =====
+    ##########################
 
     def get_device_pools(
         self,
@@ -1268,6 +1292,10 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    ################################
+    # ===== CONFERENCE BRIDGES =====
+    ################################
+
     def get_conference_bridges(
         self,
         tagfilter={
@@ -1362,6 +1390,10 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    #########################
+    # ===== TRANSCODERS =====
+    #########################
+
     def get_transcoders(
         self, tagfilter={"name": "", "description": "", "devicePoolName": ""}
     ):
@@ -1441,6 +1473,10 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    #################
+    # ===== MTP =====
+    #################
+
     def get_mtps(self, tagfilter={"name": "", "description": "", "devicePoolName": ""}):
         """
         Get mtps
@@ -1517,6 +1553,10 @@ class Axl(object):
             return self.client.removeMtp(name=name)
         except Fault as e:
             raise AXLFault(e)
+
+    ###########################
+    # ===== H323 GATEWAYS =====
+    ###########################
 
     def get_h323_gateways(
         self,
@@ -1613,6 +1653,10 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    ##########################
+    # ===== ROUTE GROUPS =====
+    ##########################
+
     def get_route_groups(self, tagfilter={"name": "", "distributionAlgorithm": ""}):
         """
         Get route groups
@@ -1691,6 +1735,10 @@ class Axl(object):
             return self.client.updateRouteGroup(**args)
         except Fault as e:
             raise AXLFault(e)
+
+    #########################
+    # ===== ROUTE LISTS =====
+    #########################
 
     def get_route_lists(self, tagfilter={"name": "", "description": ""}):
         """
@@ -1801,6 +1849,10 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    ##############################
+    # ===== ROUTE PARTITIONS =====
+    ##############################
+
     def get_partitions(self, tagfilter={"name": "", "description": ""}):
         """
         Get partitions
@@ -1872,6 +1924,10 @@ class Axl(object):
             return self.client.updateRoutePartition(**args)
         except Fault as e:
             raise AXLFault(e)
+
+    #################
+    # ===== CSS =====
+    #################
 
     def get_calling_search_spaces(self, tagfilter={"name": "", "description": ""}):
         """
@@ -1954,6 +2010,10 @@ class Axl(object):
             return self.client.updateCss(**args)
         except Fault as e:
             raise AXLFault(e)
+
+    ############################
+    # ===== ROUTE PATTERNS =====
+    ############################
 
     def get_route_patterns(
         self, tagfilter={"pattern": "", "description": "", "uuid": ""}
@@ -2077,6 +2137,10 @@ class Axl(object):
             return self.client.updateRoutePattern(**args)
         except Fault as e:
             raise AXLFault(e)
+
+    ###################################
+    # ===== MEDIA RESOURCE GROUPS =====
+    ###################################
 
     def get_media_resource_groups(self, tagfilter={"name": "", "description": ""}):
         """
@@ -2223,6 +2287,10 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    ###############################
+    # ===== DIRECTORY NUMBERS =====
+    ###############################
+
     @serialize_list
     @check_tags("listLine")
     def get_directory_numbers(
@@ -2357,109 +2425,6 @@ class Axl(object):
                 [],
             )
 
-    # def add_directory_number(
-    #     self,
-    #     pattern,
-    #     partition="",
-    #     description="",
-    #     alerting_name="",
-    #     ascii_alerting_name="",
-    #     shared_line_css="",
-    #     aar_neighbourhood="",
-    #     call_forward_css="",
-    #     vm_profile_name="NoVoiceMail",
-    #     aar_destination_mask="",
-    #     call_forward_destination="",
-    #     forward_all_to_vm="false",
-    #     forward_all_destination="",
-    #     forward_to_vm="false",
-    # ):
-    #     """
-    #     Add a directory number
-    #     :param pattern: Directory number
-    #     :param partition: Route partition name
-    #     :param description: Directory number description
-    #     :param alerting_name: Alerting name
-    #     :param ascii_alerting_name: ASCII alerting name
-    #     :param shared_line_css: Calling search space
-    #     :param aar_neighbourhood: AAR group
-    #     :param call_forward_css: Call forward calling search space
-    #     :param vm_profile_name: Voice mail profile
-    #     :param aar_destination_mask: AAR destination mask
-    #     :param call_forward_destination: Call forward destination
-    #     :param forward_all_to_vm: Forward all to voice mail checkbox
-    #     :param forward_all_destination: Forward all destination
-    #     :param forward_to_vm: Forward to voice mail checkbox
-    #     :return: result dictionary
-    #     """
-    #     try:
-    #         return self.client.addLine(
-    #             {
-    #                 "pattern": pattern,
-    #                 "routePartitionName": partition,
-    #                 "description": description,
-    #                 "alertingName": alerting_name,
-    #                 "asciiAlertingName": ascii_alerting_name,
-    #                 "voiceMailProfileName": vm_profile_name,
-    #                 "shareLineAppearanceCssName": shared_line_css,
-    #                 "aarNeighborhoodName": aar_neighbourhood,
-    #                 "aarDestinationMask": aar_destination_mask,
-    #                 "usage": "Device",
-    #                 "callForwardAll": {
-    #                     "forwardToVoiceMail": forward_all_to_vm,
-    #                     "callingSearchSpaceName": call_forward_css,
-    #                     "destination": forward_all_destination,
-    #                 },
-    #                 "callForwardBusy": {
-    #                     "forwardToVoiceMail": forward_to_vm,
-    #                     "callingSearchSpaceName": call_forward_css,
-    #                     "destination": call_forward_destination,
-    #                 },
-    #                 "callForwardBusyInt": {
-    #                     "forwardToVoiceMail": forward_to_vm,
-    #                     "callingSearchSpaceName": call_forward_css,
-    #                     "destination": call_forward_destination,
-    #                 },
-    #                 "callForwardNoAnswer": {
-    #                     "forwardToVoiceMail": forward_to_vm,
-    #                     "callingSearchSpaceName": call_forward_css,
-    #                     "destination": call_forward_destination,
-    #                 },
-    #                 "callForwardNoAnswerInt": {
-    #                     "forwardToVoiceMail": forward_to_vm,
-    #                     "callingSearchSpaceName": call_forward_css,
-    #                     "destination": call_forward_destination,
-    #                 },
-    #                 "callForwardNoCoverage": {
-    #                     "forwardToVoiceMail": forward_to_vm,
-    #                     "callingSearchSpaceName": call_forward_css,
-    #                     "destination": call_forward_destination,
-    #                 },
-    #                 "callForwardNoCoverageInt": {
-    #                     "forwardToVoiceMail": forward_to_vm,
-    #                     "callingSearchSpaceName": call_forward_css,
-    #                     "destination": call_forward_destination,
-    #                 },
-    #                 "callForwardOnFailure": {
-    #                     "forwardToVoiceMail": forward_to_vm,
-    #                     "callingSearchSpaceName": call_forward_css,
-    #                     "destination": call_forward_destination,
-    #                 },
-    #                 "callForwardNotRegistered": {
-    #                     "forwardToVoiceMail": forward_to_vm,
-    #                     "callingSearchSpaceName": call_forward_css,
-    #                     "destination": call_forward_destination,
-    #                 },
-    #                 "callForwardNotRegisteredInt": {
-    #                     "forwardToVoiceMail": forward_to_vm,
-    #                     "callingSearchSpaceName": call_forward_css,
-    #                     "destination": call_forward_destination,
-    #                 },
-    #             }
-    #         )
-    #     except Fault as e:
-    #         raise AXLFault(e)
-
     @serialize
     @operation_tag("removeLine")
     def delete_directory_number(self, uuid="", pattern="", route_partition="") -> dict:
@@ -2552,6 +2517,10 @@ class Axl(object):
             {"name": name, "uuid": uuid, "returnedTags": tags},
             ["return", "routePartition"],
         )
+
+    ##############################
+    # ===== CTI ROUTE POINTS =====
+    ##############################
 
     def get_cti_route_points(self, tagfilter={"name": "", "description": ""}):
         """
@@ -2677,6 +2646,10 @@ class Axl(object):
             return self.client.updateCtiRoutePoint(**args)
         except Fault as e:
             raise AXLFault(e)
+
+    ####################
+    # ===== PHONES =====
+    ####################
 
     @serialize_list
     @check_tags("listPhone")
@@ -3008,6 +2981,10 @@ class Axl(object):
     def update_phone_blf(self):
         pass
 
+    #############################
+    # ===== DEVICE PROFILES =====
+    #############################
+
     def get_device_profiles(
         self,
         tagfilter={
@@ -3141,6 +3118,10 @@ class Axl(object):
             return self.client.updateDeviceProfile(**args)
         except Fault as e:
             raise AXLFault(e)
+
+    ###################
+    # ===== USERS =====
+    ###################
 
     def get_users(self, tagfilter={"userid": "", "firstName": "", "lastName": ""}):
         """
@@ -3290,6 +3271,10 @@ class Axl(object):
             return self.client.removeUser(**args)
         except Fault as e:
             raise AXLFault(e)
+
+    ##################################
+    # ===== TRANSLATION PATTERNS =====
+    ##################################
 
     def get_translations(self):
         """
@@ -3531,6 +3516,10 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    ########################
+    # ===== ROUTE PLAN =====
+    ########################
+
     def list_route_plan(self, pattern=""):
         """
         List Route Plan
@@ -3771,6 +3760,10 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    ####################
+    # ===== TRUNKS =====
+    ####################
+
     def get_sip_trunks(
         self, tagfilter={"name": "", "sipProfileName": "", "callingSearchSpaceName": ""}
     ):
@@ -3853,6 +3846,10 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    #################################
+    # ===== SERVERS & CM GROUPS =====
+    #################################
+
     def list_process_nodes(self):
         try:
             return self.client.listProcessNode(
@@ -3920,6 +3917,10 @@ class Axl(object):
             return self.client.removeCallManagerGroup({"name": name})
         except Fault as e:
             raise AXLFault(e)
+
+    ###########################
+    # ===== SCCP GATEWAYS =====
+    ###########################
 
     @serialize
     @check_tags("getGateway")
@@ -4005,6 +4006,10 @@ class Axl(object):
 
         return self._base_soap_call("addGateway", {"gateway": gateway}, [])
 
+    #########################
+    # ===== LINE GROUPS =====
+    #########################
+
     @serialize
     @check_tags("getLineGroup")
     def get_line_group(self, name: str, *, return_tags=[]) -> dict:
@@ -4087,6 +4092,11 @@ class Axl(object):
                     print(
                         f"[{i}/{len(lgs)}] Reset '{lg_futs[f]}' with {f.result()} devices."
                     )
+
+
+# ****************************
+# ----- UTILITY FUCTIONS -----
+# ****************************
 
 
 def _tag_handler(tags: list) -> dict:
@@ -4181,26 +4191,3 @@ def filter_empty_kwargs(all_args: dict, arg_renames: dict = {}) -> dict:
         if value == Empty:
             args_copy[arg] = ""
     return args_copy
-
-
-# def filter_none_values(d: dict) -> dict:
-#     filtered: dict = {}
-
-#     for key, value in d.items():
-#         if type(value) == dict and (child := filter_none_values(value)):
-#             filtered[key] = child
-#         elif type(value) == list:
-#             valid_entries: list = []
-#             for entry in value:
-#                 if entry is None:
-#                     continue
-#                 elif type(entry) not in (dict, list):
-#                     valid_entries.append(entry)
-#                 elif (filtered_entry := filter_none_values(entry)):
-#                     valid_entries.append(filtered_entry)
-#             if valid_entries:
-#                 filtered[key] = valid_entries
-#         elif value is not None:
-#             filtered[key] = value
-
-#     return filtered
