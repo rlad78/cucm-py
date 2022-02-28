@@ -301,7 +301,7 @@ class Axl(object):
         if verbose:
             print("Connection to AXL service established!\n")
 
-    def _extract_template(self, element_name: str, template: dict, child="") -> dict:
+    def __extract_template(self, element_name: str, template: dict, child="") -> dict:
         def is_removable(branch: dict) -> bool:
             for value in branch.values():
                 if type(value) == dict:
@@ -360,7 +360,7 @@ class Axl(object):
             if value in template_data:
                 del template_data[value]
 
-        result = self._extract_template("addPhone", template_data, "phone")
+        result = self.__extract_template("addPhone", template_data, "phone")
         return result
 
     def _from_line_template(
@@ -373,7 +373,7 @@ class Axl(object):
         )
         template_data.update({"active": "true", "usage": Nil}, **kwargs)
 
-        result = self._extract_template("addLine", template_data, "line")
+        result = self.__extract_template("addLine", template_data, "line")
         return result
 
     # def _line_template(self, pattern: str, route_partition: str) -> dict:
@@ -2315,11 +2315,25 @@ class Axl(object):
         template_route_partition=None,
         **kwargs,
     ):
+        # check pattern validity
+        if not re.match(r"^[0-9\?\!\\\[\]\+\-\*\^\#X]+$", pattern):
+            raise InvalidArguments(f"Invalid pattern '{pattern}'")
+
+        # check route partition exists
+        try:
+            self.get_route_partition(name=route_partition, return_tags=["name"])
+        except AXLFault as e:
+            raise InvalidArguments(f"Route Partition {route_partition} does not exist")
+
         # check template
         if type(template_name) == str and type(template_route_partition) == str:
             try:
-                template_line = self.get_directory_number(
-                    template_name, template_route_partition, return_tags=[]
+                template_line = self._from_line_template(
+                    template_name,
+                    template_route_partition,
+                    pattern=pattern,
+                    routePartitionName=route_partition,
+                    **kwargs,
                 )
             except AXLFault as e:
                 if "Line was not found" in e.message:
@@ -2329,27 +2343,19 @@ class Axl(object):
                     )
                 else:
                     raise e
-            template_line.update(
-                {"pattern": pattern, "routePartitionName": route_partition, **kwargs}
-            )
-            # TODO: Got to remove None values AND keys from template, messes things up
             return self._base_soap_call("addLine", {"line": template_line}, [])
-
-        # check pattern validity
-        if not re.match(r"^[0-9\?\!\\\[\]\+\-\*\^\#X]+$"):
-            raise InvalidArguments(f"Invalid pattern '{pattern}'")
-
-        # check route partition exists
-        try:
-            self.get_route_partition(name=route_partition, return_tags=["name"])
-        except AXLFault as e:
-            raise InvalidArguments(f"Route Partition {route_partition} does not exist")
-
-        return self._base_soap_call(
-            "addLine",
-            {"pattern": pattern, "routePartitionName": route_partition, **kwargs},
-            [],
-        )
+        # no template
+        else:
+            return self._base_soap_call(
+                "addLine",
+                {
+                    "pattern": pattern,
+                    "routePartitionName": route_partition,
+                    "usage": Nil,
+                    **kwargs,
+                },
+                [],
+            )
 
     # def add_directory_number(
     #     self,
@@ -2790,7 +2796,9 @@ class Axl(object):
     ) -> dict:
         if use_phone_template:
             found_template = self.get_phone(name=use_phone_template)
-            add_tags = self._extract_template("addPhone", found_template, child="phone")
+            add_tags = self.__extract_template(
+                "addPhone", found_template, child="phone"
+            )
             add_tags.update(
                 {
                     "name": dev_name,  # definitely want to use our own name
@@ -4173,3 +4181,26 @@ def filter_empty_kwargs(all_args: dict, arg_renames: dict = {}) -> dict:
         if value == Empty:
             args_copy[arg] = ""
     return args_copy
+
+
+# def filter_none_values(d: dict) -> dict:
+#     filtered: dict = {}
+
+#     for key, value in d.items():
+#         if type(value) == dict and (child := filter_none_values(value)):
+#             filtered[key] = child
+#         elif type(value) == list:
+#             valid_entries: list = []
+#             for entry in value:
+#                 if entry is None:
+#                     continue
+#                 elif type(entry) not in (dict, list):
+#                     valid_entries.append(entry)
+#                 elif (filtered_entry := filter_none_values(entry)):
+#                     valid_entries.append(filtered_entry)
+#             if valid_entries:
+#                 filtered[key] = valid_entries
+#         elif value is not None:
+#             filtered[key] = value
+
+#     return filtered
