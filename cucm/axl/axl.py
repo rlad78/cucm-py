@@ -376,6 +376,15 @@ class Axl(object):
         result = self.__extract_template("addPhone", template_data, "phone")
         return result
 
+    def _from_gateway_template(self, template_name: str, **kwargs) -> dict:
+        template_data = self.get_gateway(device_name=template_name)
+        template_data.update(**kwargs)
+        for value in ("versionStamp", "uuid", "loadInformation", "scratch"):
+            if value in template_data:
+                del template_data[value]
+
+        return self.__extract_template("addGateway", template_data, child="gateway")
+
     def _from_line_template(
         self, template_name: str, template_route_partition: str, **kwargs
     ) -> dict:
@@ -3978,7 +3987,13 @@ class Axl(object):
         return results
 
     def add_gateway(
-        self, mac: str, description: str, model: str, protocol: str, cmg_group: str
+        self,
+        mac: str,
+        description: str,
+        model: str,
+        cm_group: str,
+        protocol="SCCP",
+        **kwargs,
     ):
         if protocol.upper() not in ("SCCP", "MGCP"):
             raise InvalidArguments(f"{protocol} is not a valid gateway protocol")
@@ -3987,24 +4002,67 @@ class Axl(object):
                 f"mac must be either full 12-digit MAC address or first 10-digits ({mac=})"
             )
 
+        if model == "VG204":
+            domain_name = "SKIGW" + (mac if len(mac) == 10 else mac[-10:])
+            subunit = [{"index": 0, "product": "4FXS-SCCP", "beginPort": 0}]
+            unit = [{"index": 0, "product": "ANALOG", "subunits": {"subunit": subunit}}]
+            units = {"unit": unit}
+        else:
+            raise InvalidArguments(
+                f"Sorry, this model of gateway is not supported yet: {model}"
+            )
+
         gateway = {
+            "domainName": domain_name,
             "description": description,
             "product": model,
             "protocol": protocol.upper(),
-            "callManagerGroupName": cmg_group,
+            "callManagerGroupName": cm_group,
+            "units": units,
+            **kwargs,
         }
 
-        if model == "VG204":
-            gateway["domainName"] = "SKIGW" + (mac if len(mac) == 10 else mac[-10:])
-            subunit = [{"index": 0, "product": "4FXS-SCCP", "beginPort": 0}]
-            unit = [{"index": 0, "product": "ANALOG", "subunits": {"subunit": subunit}}]
-            gateway["units"] = {"unit": unit}
-        else:
+        return self._base_soap_call("addGateway", {"gateway": gateway}, [])
+
+    @check_arguments("addGateway", child="gateway")
+    def add_gateway_from_template(
+        self, mac: str, description: str, template_name: str, **kwargs
+    ):
+        if len(mac) not in (10, 12):
             raise InvalidArguments(
-                f"Sorry, this model of gateway is not supported yet {model}"
+                f"mac must be either full 12-digit MAC address or first 10-digits ({mac=})"
             )
 
+        gateway = self._from_gateway_template(
+            template_name,
+            domainName="SKIGW" + (mac if len(mac) == 10 else mac[-10:]),
+            description=description,
+            **kwargs,
+        )
+
         return self._base_soap_call("addGateway", {"gateway": gateway}, [])
+
+    @check_arguments("addGatewaySccpEndpoints", child="gatewaySccpEndpoints")
+    def add_gateway_endpoint(
+        self,
+        host_domain_name: str,
+        css: str,
+        device_pool: str,
+        location: str,
+        phone_button_template="Standard Analog",
+        security_profile="Analog Phone - Standard SCCP Non-Secure Proifle",
+        mobility="Default",
+        common_phone_config="Standard Common Phone Profile",
+        subscribe_css: str = None,
+        presence_group="Standard Presence group",
+        unit: int = None,
+        subunit: int = None,
+        index: int = None,
+    ):
+        # get host gw info
+        gateway = self.get_gateway(host_domain_name, return_tags=["protocol", "units"])
+        protocol = gateway["protocol"]
+        # TODO: keep going from hehre, too tired...
 
     #########################
     # ===== LINE GROUPS =====
