@@ -385,6 +385,52 @@ class Axl(object):
 
         return self.__extract_template("addGateway", template_data, child="gateway")
 
+    def _from_endpoint_template(
+        self,
+        template_name: str,
+        gw_domain_name: str,
+        endpoint_kwargs: dict,
+        line_pattern: str,
+        line_route_partition: str,
+    ) -> dict:
+        template_data = self._base_soap_call(
+            "getGatewaySccpEndpoints",
+            {"name": template_name},
+            ["return", "gatewaySccpEndpoints"],
+            serialize=True,
+        )
+        del template_data["gatewayUuid"]
+
+        template_data.update({"domainName": gw_domain_name})
+
+        template_data["endpoint"].update({"class": "Phone"}, **endpoint_kwargs)
+        # after the index is final, we can figure out the appropriate name
+        template_data["endpoint"]["name"] = (
+            "AN"
+            + gw_domain_name.replace("SKIGW", "")
+            + str(template_data["endpoint"]["index"]).zfill(3)
+        )
+
+        # make sure line exists
+        try:
+            self.get_directory_number(
+                line_pattern, line_route_partition, return_tags=["pattern"]
+            )
+        except AXLFault:
+            raise InvalidArguments(
+                f"Cannot create endpoint with ({line_pattern}, {line_route_partition}): DN does not exist."
+            )
+        # insert lineIdentifier
+        del template_data["endpoint"]["lines"]["line"]
+        template_data["endpoint"]["lines"]["lineIdentifier"] = {
+            "directoryNumber": line_pattern,
+            "routePartitionName": line_route_partition,
+        }
+
+        return self.__extract_template(
+            "addGatewaySccpEndpoints", template_data, child="gatewaySccpEndpoints"
+        )
+
     def _from_line_template(
         self, template_name: str, template_route_partition: str, **kwargs
     ) -> dict:
@@ -407,6 +453,7 @@ class Axl(object):
         element_name: str,
         msg_kwargs: dict,
         wanted_keys: list[str],
+        serialize=False,
     ):
         try:
             result = getattr(self.client, element_name)(**msg_kwargs)
@@ -433,7 +480,11 @@ class Axl(object):
                 raise DumbProgrammerException(
                     f"({element_name}, {wanted_keys=}) does not contain '{key}'{' at ' + progress if wanted_keys.index(key) > 0 else ''}"
                 )
-        return result
+
+        if serialize:
+            return serialize_object(result, dict)
+        else:
+            return result
 
     def _base_soap_call_uuid(
         self,
