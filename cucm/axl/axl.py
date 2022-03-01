@@ -3947,7 +3947,7 @@ class Axl(object):
         )
 
     @serialize_list
-    def get_gateway_lines(
+    def get_gateway_endpoints(
         self,
         device_name="",
         uuid="",
@@ -4062,7 +4062,34 @@ class Axl(object):
         # get host gw info
         gateway = self.get_gateway(host_domain_name, return_tags=["protocol", "units"])
         protocol = gateway["protocol"]
-        # TODO: keep going from hehre, too tired...
+
+        endpoint = {
+            "domainName": host_domain_name,
+            "unit": unit if unit is not None else 0,
+            "subunit": subunit if subunit is not None else 0,
+            # TODO: finish this up later
+        }
+
+    @check_arguments("addGatewaySccpEndpoints", child="gatewaySccpEndpoints")
+    def add_gateway_endpoint_from_template(
+        self,
+        host_domain_name: str,
+        endpoint_template: str,
+        unit: int = None,
+        subunit: int = None,
+        index: int = None,
+    ):
+        # get gateway info
+        try:
+            units = self.get_gateway(host_domain_name, return_tags=["units"])["units"][
+                "unit"
+            ]
+        except TypeError:
+            raise InvalidArguments(
+                f"{host_domain_name} does not have initialized Units"
+            )
+
+        # TODO: finish this up later
 
     #########################
     # ===== LINE GROUPS =====
