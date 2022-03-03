@@ -3995,6 +3995,21 @@ class Axl(object):
             non_uuid_value="domainName",
         )
 
+    @serialize
+    @check_tags("getGatewaySccpEndpoints")
+    def get_endpoint(self, name="", uuid="", *, return_tags=[]):
+        tags = _tag_handler(return_tags)
+        return self._base_soap_call_uuid(
+            element_name="getGatewaySccpEndpoints",
+            msg_kwargs={
+                "name": name,
+                "uuid": uuid,
+                "returnedTags": tags,
+            },
+            wanted_keys=["return", "gatewaySccpEndpoints"],
+            non_uuid_value="name",
+        )
+
     @serialize_list
     def get_gateway_endpoints(
         self,
