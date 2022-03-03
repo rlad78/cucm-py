@@ -163,8 +163,18 @@ def _list_options(options: Sequence) -> str:
 
 
 class WSDLChoiceException(WSDLMissingArguments):
+    def __init__(
+        self,
+        arguments: Sequence,
+        element_name: str,
+        return_tags: bool = False,
+        *args: object,
+    ) -> None:
+        self.return_tags = return_tags
+        super().__init__(arguments, element_name, *args)
+
     def __str__(self) -> str:
-        return f"For {self.element}, you must choose only ONE of the following:\n{_list_options(self.arguments)}"
+        return f"For {self.element}, you can choose only ONE of the following{' for the returned tags' if self.return_tags else ''}:\n{_list_options(self.arguments)}"
 
 
 class WSDLDrillDownException(WSDLInvalidArgument):

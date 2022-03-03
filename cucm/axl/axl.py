@@ -321,7 +321,9 @@ class Axl(object):
                     if is_removable(value) == False:
                         return False
                 elif type(value) == list:
-                    if not all([is_removable(v) for v in value]):
+                    if not all([type(v) == dict for v in value]):
+                        return False
+                    elif not all([is_removable(v) for v in value]):
                         return False
                 elif value not in (None, -1, ""):
                     return False
@@ -332,21 +334,22 @@ class Axl(object):
             result = {}
             for name, value in template.items():
                 if (node := root.get(name, None)) is not None:
-                    if node.children and type(value) == dict:
-                        result_dict = tree_match(node, value)
-                        if (
-                            not is_removable(result_dict)
-                            or node._parent_chain_required()
-                        ):
-                            result[name] = result_dict
-                    elif node.children and type(value) == list:
-                        result_list = [tree_match(node, t) for t in value]
-                        if all([type(r) == dict for r in result_list]):
-                            result_list = [
-                                r for r in result_list if not is_removable(r)
-                            ]
-                        if result_list:
-                            result[name] = result_list
+                    if node.children:
+                        if type(value) == dict:
+                            result_dict = tree_match(node, value)
+                            if (
+                                not is_removable(result_dict)
+                                or node._parent_chain_required()
+                            ):
+                                result[name] = result_dict
+                        elif type(value) == list:
+                            result_list = [tree_match(node, t) for t in value]
+                            if all([type(r) == dict for r in result_list]):
+                                result_list = [
+                                    r for r in result_list if not is_removable(r)
+                                ]
+                            if result_list:
+                                result[name] = result_list
                     else:
                         result[name] = value
             return result
@@ -361,7 +364,11 @@ class Axl(object):
 
         result_data = tree_match(tree, template)
         for name, value in deepcopy(result_data).items():
-            if value in (None, -1, "") and not tree.get(name)._parent_chain_required():
+            if tree.get(name)._parent_chain_required():
+                continue
+            elif value in (None, -1, ""):
+                result_data.pop(name)
+            elif type(value) == dict and is_removable(value):
                 result_data.pop(name)
 
         return result_data
@@ -393,12 +400,7 @@ class Axl(object):
         line_pattern: str,
         line_route_partition: str,
     ) -> dict:
-        template_data = self._base_soap_call(
-            "getGatewaySccpEndpoints",
-            {"name": template_name},
-            ["return", "gatewaySccpEndpoints"],
-            serialize=True,
-        )
+        template_data = self.get_endpoint(name=template_name)
         del template_data["gatewayUuid"]
 
         template_data.update({"domainName": gw_domain_name})
@@ -453,7 +455,6 @@ class Axl(object):
         element_name: str,
         msg_kwargs: dict,
         wanted_keys: list[str],
-        serialize=False,
     ):
         try:
             result = getattr(self.client, element_name)(**msg_kwargs)
@@ -481,10 +482,7 @@ class Axl(object):
                     f"({element_name}, {wanted_keys=}) does not contain '{key}'{' at ' + progress if wanted_keys.index(key) > 0 else ''}"
                 )
 
-        if serialize:
-            return serialize_object(result, dict)
-        else:
-            return result
+        return result
 
     def _base_soap_call_uuid(
         self,

@@ -67,6 +67,12 @@ class AXLElement:
         else:
             raise WSDLException(f"Unknown element format '{type(element)}'")
 
+    def __getitem__(self, key):
+        if (value := self.get(key, None)) is not None:
+            return value
+        else:
+            raise KeyError(key)
+
     def __repr__(self) -> str:
         name = self.name
         xsd_type = type(self.type).__name__
@@ -106,6 +112,21 @@ class AXLElement:
                 else:
                     c_dict[child.name] = ""
         return c_dict
+
+    def children_names(self) -> list:
+        child_strings = []
+        for child in self.children:
+            if child.type == Choice or child.type == Sequence:
+                if child.type == Choice:
+                    sep = ("(", " | ", ")")
+                else:
+                    sep = ("[", " + ", "]")
+                child_strings.append(
+                    sep[0] + sep[1].join([c.name for c in child.children]) + sep[2]
+                )
+            else:
+                child_strings.append(child.name)
+        return child_strings
 
     def print_tree(self, indent=0, show_types=False, show_required=False) -> None:
         branch_str = f"{'  ' * indent if indent < 2 else ('  |' * (indent - 1)) + '  '}{'┗ ' if indent else ''}"
@@ -342,6 +363,28 @@ class AXLElement:
         else:
             return self.needed
 
+    def first_choice(self, *, root=True) -> "AXLElement":
+        if root and self.type != Choice:
+            raise WSDLException(
+                f"Can't use first choice on non-choice node '{self.name}'"
+            )
+
+        if self.children[0].type not in (Choice, Sequence):
+            return self.children[0]
+        elif self.children[0].type == Choice:
+            return self.children[0].first_choice(root=False)
+        elif self.children[0].type == Sequence:
+            # try to do ANYTHING but return a sequence
+            if len(self.children) == 1:
+                return self.children[0]
+            for child in self.children[1:]:
+                if child.type == Choice:
+                    return child.first_choice(root=False)
+                elif child.type != Sequence:
+                    return child
+            else:
+                return self.children[0]
+
 
 def __get_element_by_name(z_client: Client, element_name: str) -> Element:
     try:
@@ -399,7 +442,30 @@ def get_search_criteria(z_client: Client, element_name: str) -> list[str]:
 
 
 def get_return_tags(z_client: Client, element_name: str) -> list[str]:
-    return __get_element_child_args(z_client, element_name, child_name="returnedTags")
+    try:
+        return_tree = get_tree(z_client, element_name)["returnedTags"]
+    except KeyError:
+        raise WSDLException(f"Element '{element_name}' has no returnedTags sub-element")
+
+    def extract_return_tags(tree: AXLElement) -> list[str]:
+        tags = []
+        for child in tree.children:
+            if child.type == Choice:
+                best = child.first_choice()
+                if best.type == Sequence:
+                    tags.extend(extract_return_tags(best))
+                else:
+                    tags.append(best.name)
+            elif child.type == Sequence:
+                for grandchild in child.children:
+                    tags.extend(extract_return_tags(grandchild))
+            else:
+                tags.append(child.name)
+        return tags
+
+    return extract_return_tags(return_tree)
+
+    # return __get_element_child_args(z_client, element_name, child_name="returnedTags")
 
 
 def get_return_tree(z_client: Client, element_name: str) -> dict:
@@ -414,32 +480,70 @@ def get_tree(z_client: Client, element_name: str) -> AXLElement:
     return AXLElement(__get_element_by_name(z_client, element_name))
 
 
+# def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> list:
+#     def tags_in_tree(tree: dict, tags: list[str]) -> dict:
+#         picked_tree: dict = dict()
+#         for tag in tags:
+#             picked_tree[tag] = tree.get(tag, None)
+#             if picked_tree[tag] is None:
+#                 raise TagNotValid(
+#                     tag, get_return_tags(z_client, element_name), elem_name=element_name
+#                 )
+#         return picked_tree
+
+#     element_tree = AXLElement(__get_element_by_name(z_client, element_name))
+
+#     if element_tree.get("returnedTags", None) is None:
+#         raise WSDLException(f"Element '{element_name}' has no returnedTags sub-element")
+
+#     tags_dict = element_tree.return_tags()
+
+#     for tag in tags:
+#         if tags_dict.get(tag, None) not in (
+#             Nil,
+#             "",
+#         ):  # complex tag, replace tag list with dict
+#             return [tags_in_tree(tags_dict, tags)]
+#     else:
+#         return tags
+
+
 def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> list:
-    def tags_in_tree(tree: dict, tags: list[str]) -> dict:
-        picked_tree: dict = dict()
-        for tag in tags:
-            picked_tree[tag] = tree.get(tag, None)
-            if picked_tree[tag] is None:
-                raise TagNotValid(
-                    tag, get_return_tags(z_client, element_name), elem_name=element_name
-                )
-        return picked_tree
+    tree = get_tree(z_client, element_name)
 
-    element_tree = AXLElement(__get_element_by_name(z_client, element_name))
-
-    if element_tree.get("returnedTags", None) is None:
+    if tree.get("returnedTags", None) is None:
         raise WSDLException(f"Element '{element_name}' has no returnedTags sub-element")
 
-    tags_dict = element_tree.return_tags()
-
+    tag_tree = tree["returnedTags"]
+    return_tags = {}
     for tag in tags:
-        if tags_dict.get(tag, None) not in (
-            Nil,
-            "",
-        ):  # complex tag, replace tag list with dict
-            return [tags_in_tree(tags_dict, tags)]
-    else:
-        return tags
+        if (found := tag_tree.get(tag, None)) is not None:
+            if found.children:
+                return_tags.update(found.to_dict())
+            else:
+                return_tags[tag] = Nil
+        elif choice_nodes := [c for c in tag_tree.children if c.type == Choice]:
+            for choice in choice_nodes:
+                if (found := choice.get(tag, None)) is not None:
+                    other_choices = [c.name for c in found.children if c.name != tag]
+                    if any([(c in tags) for c in other_choices]):
+                        raise WSDLChoiceException(
+                            other_choices + [tag], element_name, return_tags=True
+                        )
+                    else:
+                        if found.children:
+                            return_tags.update(found.to_dict())
+                        else:
+                            return_tags[tag] = Nil
+                    break
+            else:
+                raise TagNotValid(
+                    tag, tag_tree.children_names(), elem_name=element_name
+                )
+        else:
+            raise TagNotValid(tag, tag_tree.children_names(), elem_name=element_name)
+
+    return [return_tags]
 
 
 def validate_soap_arguments(z_client: Client, element_name: str, **kwargs) -> bool:
