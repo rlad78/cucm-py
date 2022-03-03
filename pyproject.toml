@@ -3,7 +3,7 @@ name = "cucm-py"
 packages = [
     {include = "cucm"}
 ]
-version = "0.3.2"
+version = "0.3.3"
 description = "Python SDK for interacting with CUCM services and devices. Utilizes technologies such as AXL, RisPort, and CiscoIPPhone XML objects."
 authors = ["rlad78 <goobysc@gmail.com>"]
 license = "MIT"

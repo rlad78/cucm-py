@@ -350,7 +350,10 @@ class Axl(object):
                                 ]
                             if result_list:
                                 result[name] = result_list
-                    else:
+                    elif value is None and node._parent_chain_required():
+                        result[name] = Nil
+                    elif value not in (None, -1, "") or node._parent_chain_required():
+                        # else:
                         result[name] = value
             return result
 
@@ -365,7 +368,9 @@ class Axl(object):
         result_data = tree_match(tree, template)
         for name, value in deepcopy(result_data).items():
             if tree.get(name)._parent_chain_required():
-                continue
+                # continue
+                if value is None:
+                    result_data[name] = Nil
             elif value in (None, -1, ""):
                 result_data.pop(name)
             elif type(value) == dict and is_removable(value):
