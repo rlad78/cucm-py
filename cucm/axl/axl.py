@@ -401,24 +401,33 @@ class Axl(object):
         self,
         template_name: str,
         gw_domain_name: str,
+        index: int,
         endpoint_kwargs: dict,
         line_pattern: str,
         line_route_partition: str,
+        *,
+        unit: int = 0,
+        subunit: int = 0,
     ) -> dict:
         template_data = self.get_endpoint(name=template_name)
         del template_data["gatewayUuid"]
 
-        template_data.update({"domainName": gw_domain_name})
-
-        template_data["endpoint"].update({"class": "Phone"}, **endpoint_kwargs)
-        # after the index is final, we can figure out the appropriate name
-        template_data["endpoint"]["name"] = (
-            "AN"
-            + gw_domain_name.replace("SKIGW", "")
-            + str(template_data["endpoint"]["index"]).zfill(3)
+        template_data.update(
+            {
+                "domainName": gw_domain_name,
+                "unit": unit,
+                "subunit": subunit,
+            }
+        )
+        template_data["endpoint"].update(
+            {
+                "class": "Phone",
+                "index": index,
+                "name": f"AN{gw_domain_name.replace('SKIGW','')}{str(index).zfill(3)}",
+            },
+            **endpoint_kwargs,
         )
 
-        # make sure line exists
         try:
             self.get_directory_number(
                 line_pattern, line_route_partition, return_tags=["pattern"]
