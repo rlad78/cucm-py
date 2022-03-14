@@ -280,7 +280,7 @@ class AXLElement:
             for name, value in d.items():
                 if type(value) == dict:
                     nil_to_str(value)
-                elif value == Nil:
+                elif value in (Nil, True):
                     d[name] = ""
 
         tags_dict = tags_element.to_dict()["returnedTags"]
@@ -313,7 +313,7 @@ class AXLElement:
 
     def to_dict(self) -> dict:
         if not self.children:
-            return {self.name: Nil}
+            return {self.name: True}
         elif self.type == Choice:
             return self.children[0].to_dict()
         elif self.type == Sequence:
