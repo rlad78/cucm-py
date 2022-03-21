@@ -315,6 +315,17 @@ class Axl(object):
     # *******************************
 
     def __extract_template(self, element_name: str, template: dict, child="") -> dict:
+        """Removes all unnecessary values from a device/line/etc template, like None and "" values. Keeps any values that are required by the given element_name, regardless of what the values are.
+
+        Args:
+            element_name (str): The 'get' element used to get the template
+            template (dict): UCM template data
+            child (str, optional): Used as a key for the template dict. Use "" to ignore. Defaults to "".
+
+        Returns:
+            dict: Template data removed of unnecessary values
+        """
+
         def is_removable(branch: dict) -> bool:
             for value in branch.values():
                 if type(value) == dict:
@@ -379,6 +390,14 @@ class Axl(object):
         return result_data
 
     def _from_phone_template(self, template_name: str, **kwargs) -> dict:
+        """Generates template data from a given UCM phone template. The template data can be used as a base to insert new phones.
+
+        Args:
+            template_name (str): The name of a phone template in Bulk Administration -> Phones -> Phone Template
+
+        Returns:
+            dict: The parsed template data
+        """
         template_data = self.get_phone(name=template_name)
         template_data.update({"class": "Phone"}, **kwargs)
         for value in ("lines", "loadInformation", "versionStamp"):
@@ -389,6 +408,14 @@ class Axl(object):
         return result
 
     def _from_gateway_template(self, template_name: str, **kwargs) -> dict:
+        """Generates template data from a given UCM gateway template. The template data can be used as a base to insert new gateways.
+
+        Args:
+            template_name (str): The name of a gateway template in Bulk Administration -> Gateways -> Gateway Template
+
+        Returns:
+            dict: The parsed template data
+        """
         template_data = self.get_gateway(device_name=template_name)
         template_data.update(**kwargs)
         for value in ("versionStamp", "uuid", "loadInformation", "scratch"):
@@ -409,6 +436,24 @@ class Axl(object):
         unit: int = 0,
         subunit: int = 0,
     ) -> dict:
+        """Generates template data from a given gateway endpoint template. The template data can be used to populate new gateway endpoints.
+
+        Args:
+            template_name (str): The name of an endpoint template from a gateway template in Bulk Administration -> Gateways -> Gateway Template
+            gw_domain_name (str): The full domain name of the gateway where this endpoint template will be used
+            index (int): The position of the endpoint on the gateway subunit
+            endpoint_kwargs (dict): Custom property values to be added to/changed on the endpoint template
+            line_pattern (str): The pattern for the DN that will be used on this endpoint
+            line_route_partition (str): The route partition for the DN that will be used on this enpoint
+            unit (int, optional): The index of the unit where the endpoint will be placed. Defaults to 0.
+            subunit (int, optional): The index of the subunit where the endpoint will be placed. Defaults to 0.
+
+        Raises:
+            InvalidArguments: when a supplied value for a pre-defined entry (gateway domain name, DN, etc) does not exist or is invalid
+
+        Returns:
+            dict: The parsed template data
+        """
         template_data = self.get_endpoint(name=template_name)
         del template_data["gatewayUuid"]
 
@@ -450,6 +495,15 @@ class Axl(object):
     def _from_line_template(
         self, template_name: str, template_route_partition: str, **kwargs
     ) -> dict:
+        """Generates template data from a given UCM line template. The template data can be used as a base to insert new lines.
+
+        Args:
+            template_name (str): The name of a line template from one of the phone templates in Bulk Administration -> Phones -> Phone Template
+            template_route_partition (str): The route partition of the template line
+
+        Returns:
+            dict: The parsed template data
+        """
         template_data = self.get_directory_number(
             pattern=template_name,
             route_partition=template_route_partition,
