@@ -10,7 +10,7 @@ license = "MIT"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-zeep = "^4.1.0"
+zeep = {extras = ["async"], version = "^4.1.0"}
 tldextract = "^3.1.2"
 validators = "^0.18.2"
 beautifulsoup4 = "^4.10.0"
