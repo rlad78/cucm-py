@@ -18,11 +18,14 @@ from logging.handlers import RotatingFileHandler
 import re
 
 # LOGGING SETTINGS
+logdir = rootcfg.LOG_DIR
+if not logdir.is_dir():
+    logdir.mkdir(exist_ok=True)
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 f_format = logging.Formatter("%(asctime)s [%(levelname)s]:%(name)s:%(funcName)s - %(message)s")
 s_format = logging.Formatter("[%(levelname)s]:%(name)s:%(funcName)s - %(message)s")
-f_handler = RotatingFileHandler(rootcfg.LOG_DIR / f"{__name__}.log", maxBytes=(1024*1024*5), backupCount=3)
+f_handler = RotatingFileHandler(rootcfg.LOG_DIR / f"{__name__}.log", maxBytes=(1024*1024*5), backupCount=3, )
 f_handler.setLevel(logging.DEBUG)
 f_handler.setFormatter(f_format)
 s_handler = logging.StreamHandler()
@@ -142,29 +145,8 @@ class AsyncAXL:
     @serialize
     @check_tags("getPhone")
     async def get_phone(self, name: str, *, return_tags: list[str] = None) -> dict:
-        tags = _tag_handler(return_tags)
         try:
-            result = await self.aclient.getPhone(name=name, returnedTags=tags)
+            result = await self.aclient.getPhone(name=name, returnedTags=return_tags)
             return result["return"]['phone']
         except (Fault, KeyError):
             return {}
-
-
-
-def _tag_handler(tags: list) -> dict:
-    """Internal function for handling basic and complex return tag lists. Do not use.
-
-    Parameters
-    ----------
-    tags : list
-        A list of str tag names, or a list containing a single dict of all tags
-
-    Returns
-    -------
-    dict
-        A dict with properly formatted tags for Zeep
-    """
-    if tags and type(tags[0]) == dict:
-        return tags[0]
-    elif all([bool(type(t) == str) for t in tags]):
-        return {t: "" for t in tags}

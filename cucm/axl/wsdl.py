@@ -508,7 +508,7 @@ def get_tree(z_client: Client, element_name: str) -> AXLElement:
 #         return tags
 
 
-def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> list:
+def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> dict:
     tree = get_tree(z_client, element_name)
 
     if tree.get("returnedTags", None) is None:
@@ -543,7 +543,7 @@ def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> lis
         else:
             raise TagNotValid(tag, tag_tree.children_names(), elem_name=element_name)
 
-    return [return_tags]
+    return return_tags
 
 
 def validate_soap_arguments(z_client: Client, element_name: str, **kwargs) -> bool:
