@@ -1,5 +1,5 @@
 from cucm.axl.exceptions import *
-from cucm.axl.configs import ROOT_DIR, CUCM_LATEST_VERSION
+from cucm.axl.configs import AXL_DIR, CUCM_LATEST_VERSION
 from cucm.connection import *
 import xml.etree.ElementTree as ET
 import validators
@@ -89,7 +89,7 @@ def validate_axl_auth(ucm: str, username: str, password: str, port="8443") -> bo
 
 
 def _get_schema_versions() -> list[str]:
-    schema_dir = ROOT_DIR / "schema"
+    schema_dir = AXL_DIR / "schema"
     if not schema_dir.is_dir():
         raise DumbProgrammerException("Cannot find schema dir")
 

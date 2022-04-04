@@ -1,4 +1,4 @@
-from typing import Callable, TypeVar, Union
+from typing import Callable, Union
 from cucm.axl.validation import (
     validate_ucm_server,
     validate_axl_auth,
@@ -7,14 +7,12 @@ from cucm.axl.validation import (
 from cucm.axl.exceptions import *
 from cucm.axl.wsdl import (
     AXLElement,
-    get_return_tags,
-    fix_return_tags,
     get_tree,
     print_element_layout,
     print_required_element_layout,
     print_return_tags_layout,
-    validate_arguments,
 )
+from cucm.axl.helpers import *
 from cucm.utils import print_signature, Empty
 import cucm.axl.configs as cfg
 import re
@@ -25,11 +23,8 @@ from zeep import Client, Settings
 from zeep.transports import Transport
 from zeep.cache import SqliteCache
 from zeep.exceptions import Fault
-from zeep.helpers import serialize_object
 from zeep.xsd import Nil
-from functools import wraps
 from copy import deepcopy
-import inspect
 from termcolor import colored
 from time import sleep
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -37,176 +32,6 @@ from tqdm import tqdm
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-########################
-# ----- DECORATORS -----
-########################
-
-TCallable = TypeVar("TCallable", bound=Callable)
-
-
-def serialize(func: TCallable) -> TCallable:
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        r_value = func(*args, **kwargs)
-        if cfg.DISABLE_SERIALIZER:
-            return r_value
-
-        if r_value is None:
-            return dict()
-        elif issubclass(type(r_value), Fault):
-            raise AXLFault(r_value)
-        elif (
-            "return_tags" not in kwargs
-            and (
-                tags_param := inspect.signature(func).parameters.get(
-                    "return_tags", None
-                )
-            )
-            is not None
-        ):
-            r_dict = serialize_object(r_value, dict)
-            return _tag_serialize_filter(tags_param.default, r_dict)
-        elif "return_tags" in kwargs:
-            r_dict = serialize_object(r_value, dict)
-            return _tag_serialize_filter(kwargs["return_tags"], r_dict)
-        else:
-            return serialize_object(r_value, dict)
-
-    return wrapper
-
-
-def serialize_list(func: TCallable) -> TCallable:
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        r_value = func(*args, **kwargs)
-        if cfg.DISABLE_SERIALIZER:
-            return r_value
-
-        if type(r_value) != list:
-            return r_value
-        elif (
-            "return_tags" not in kwargs
-            and (
-                tags_param := inspect.signature(func).parameters.get(
-                    "return_tags", None
-                )
-            )
-            is not None
-        ):
-            return [
-                _tag_serialize_filter(
-                    tags_param.default, serialize_object(element, dict)
-                )
-                for element in r_value
-            ]
-        elif "return_tags" in kwargs:
-            return [
-                _tag_serialize_filter(
-                    kwargs["return_tags"], serialize_object(element, dict)
-                )
-                for element in r_value
-            ]
-
-    return wrapper
-
-
-def check_tags(element_name: str):
-    def check_tags_decorator(func: TCallable) -> TCallable:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            if cfg.DISABLE_CHECK_TAGS:
-                return func(*args, **kwargs)
-
-            # if type(args[0]) != Axl:
-            if not issubclass(type(args[0]), Axl):
-                raise DumbProgrammerException(
-                    f"Forgot to include self in {func.__name__}!!!!"
-                )
-            elif (
-                tags_param := inspect.signature(func).parameters.get(
-                    "return_tags", None
-                )
-            ) is None:
-                raise DumbProgrammerException(
-                    f"No 'return_tags' param on {func.__name__}()"
-                )
-            elif tags_param.kind != tags_param.KEYWORD_ONLY:
-                raise DumbProgrammerException(
-                    f"Forgot to add '*' before return_tags on {func.__name__}()"
-                )
-            elif not element_name:
-                raise DumbProgrammerException(
-                    f"Forgot to provide element_name in check_tags decorator on {func.__name__}!!!"
-                )
-            elif "return_tags" not in kwargs:
-                # tags are default
-                if len(tags_param.default) == 0:
-                    kwargs["return_tags"] = fix_return_tags(
-                        z_client=args[0].zeep,
-                        element_name=element_name,
-                        tags=get_return_tags(args[0].zeep, element_name),
-                    )
-                return func(*args, **kwargs)
-            elif type(kwargs["return_tags"]) == list:
-                # supply all legal tags if an empty list is provided
-                if len(kwargs["return_tags"]) == 0:
-                    kwargs["return_tags"] = fix_return_tags(
-                        z_client=args[0].zeep,
-                        element_name=element_name,
-                        tags=get_return_tags(args[0].zeep, element_name),
-                    )
-                else:
-                    kwargs["return_tags"] = fix_return_tags(
-                        z_client=args[0].zeep,
-                        element_name=element_name,
-                        tags=kwargs["return_tags"],
-                    )
-                return func(*args, **kwargs)
-
-        wrapper.element_name = element_name
-        wrapper.check = "tags"
-        return wrapper
-
-    return check_tags_decorator
-
-
-def operation_tag(element_name: str):
-    def operation_tag_decorator(func: TCallable) -> TCallable:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-
-        wrapper.element_name = element_name
-        return wrapper
-
-    return operation_tag_decorator
-
-
-def check_arguments(element_name: str, child=None):
-    def check_argument_deorator(func: TCallable) -> TCallable:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            if cfg.DISABLE_CHECK_ARGS:
-                return func(*args, **kwargs)
-
-            # get non-default kwargs
-            default_kwargs = list(inspect.signature(func).parameters)
-            user_kwargs = {k: v for k, v in kwargs.items() if k not in default_kwargs}
-            validate_arguments(args[0].zeep, element_name, child=child, **user_kwargs)
-            return func(*args, **kwargs)
-
-        wrapper.element_name = element_name
-        wrapper.check = "args"
-        return wrapper
-
-    return check_argument_deorator
-
-
-###################
-# ----- CLASS -----
-###################
-
 
 class Axl(object):
     def __init__(
@@ -265,7 +90,7 @@ class Axl(object):
             if verbose:
                 print(f"Got UCM version number: {cucm_version}")
 
-        wsdl_path = cfg.ROOT_DIR / "schema" / cucm_version / "AXLAPI.wsdl"
+        wsdl_path = cfg.AXL_DIR / "schema" / cucm_version / "AXLAPI.wsdl"
         if not wsdl_path.parent.is_dir():
             raise UCMVersionInvalid(cucm_version)
         wsdl = str(wsdl_path)
@@ -507,7 +332,7 @@ class Axl(object):
         template_data = self.get_directory_number(
             pattern=template_name,
             route_partition=template_route_partition,
-            return_tags=[],
+            return_tags=None,
         )
         template_data.update({"active": "true", "usage": Nil}, **kwargs)
 
@@ -648,7 +473,7 @@ class Axl(object):
             print(
                 f"{colored('[NOTE]', 'yellow')}: The following tree only applies to the 'return_tags' argument, which will determine what data points are returned to you from the API call.",
                 "\nFor instance, giving 'return_tags=[\"description\", \"model\"]' to Axl.get_phone() will result in only the 'description' and 'model' fields being returned.",
-                "\nSmaller number of return tags can give you performance benefits in AXL API calls, but you may also use 'return_tags=[]' if you wish to receive data for all fields.\n",
+                "\nSmaller number of return tags can give you performance benefits in AXL API calls, but you may also use 'return_tags: list[str] = None' if you wish to receive data for all fields.\n",
                 sep="",
             )
             print_return_tags_layout(
@@ -771,7 +596,7 @@ class Axl(object):
     # ===== LDAP =====
     ##################
 
-    @serialize_list
+    @serialize
     @check_tags("listLdapDirectory")
     def get_ldap_dir(
         self,
@@ -918,7 +743,7 @@ class Axl(object):
     # ===== LOCATIONS =====
     #######################
 
-    @serialize_list
+    @serialize
     @check_tags(element_name="listLocation")
     def get_locations(
         self,
@@ -1102,9 +927,9 @@ class Axl(object):
     # ===== REGIONS =====
     #####################
 
-    @serialize_list
+    @serialize
     @check_tags("listRegion")
-    def get_regions(self, *, return_tags=[]) -> Union[list[dict], Fault]:
+    def get_regions(self, *, return_tags: list[str] = None) -> Union[list[dict], Fault]:
         """Gets a list of all regions on the current cluster. Note that the data that AXL will respond with is limited. Please used get_region() for a specific region if you wish to see more details.
 
         Parameters
@@ -2417,7 +2242,7 @@ class Axl(object):
     # ===== DIRECTORY NUMBERS =====
     ###############################
 
-    @serialize_list
+    @serialize
     @check_tags("listLine")
     def get_directory_numbers(
         self,
@@ -2636,7 +2461,7 @@ class Axl(object):
 
     @serialize
     @check_tags("getRoutePartition")
-    def get_route_partition(self, name="", uuid="", *, return_tags=[]) -> dict:
+    def get_route_partition(self, name="", uuid="", *, return_tags: list[str] = None) -> dict:
         tags = _tag_handler(return_tags)
         return self._base_soap_call_uuid(
             "getRoutePartition",
@@ -2777,7 +2602,7 @@ class Axl(object):
     # ===== PHONES =====
     ####################
 
-    @serialize_list
+    @serialize
     @check_tags("listPhone")
     def get_phones(
         self,
@@ -2813,7 +2638,7 @@ class Axl(object):
 
     @serialize
     @check_tags("getPhone")
-    def get_phone(self, uuid="", name="", *, return_tags=[]):
+    def get_phone(self, uuid="", name="", *, return_tags: list[str] = None):
         """
         Get device profile parameters
         :param phone: profile name
@@ -2838,9 +2663,9 @@ class Axl(object):
         else:
             raise InvalidArguments("Must provide a value for either 'uuid' or 'name'")
 
-    @serialize_list
+    @serialize
     def get_phone_lines(
-        self, uuid="", name="", main_line_only=False, *, return_tags=[]
+        self, uuid="", name="", main_line_only=False, *, return_tags: list[str] = None
     ):
         dev = self.get_phone(uuid=uuid, name=name, return_tags=["lines"])
         if dev["lines"] is None:
@@ -4050,7 +3875,7 @@ class Axl(object):
 
     @serialize
     @check_tags("getGateway")
-    def get_gateway(self, device_name="", uuid="", *, return_tags=[]):
+    def get_gateway(self, device_name="", uuid="", *, return_tags: list[str] = None):
         tags = _tag_handler(return_tags)
         return self._base_soap_call_uuid(
             element_name="getGateway",
@@ -4065,7 +3890,7 @@ class Axl(object):
 
     @serialize
     @check_tags("getGatewaySccpEndpoints")
-    def get_endpoint(self, name="", uuid="", *, return_tags=[]):
+    def get_endpoint(self, name="", uuid="", *, return_tags: list[str] = None):
         tags = _tag_handler(return_tags)
         return self._base_soap_call_uuid(
             element_name="getGatewaySccpEndpoints",
@@ -4078,14 +3903,14 @@ class Axl(object):
             non_uuid_value="name",
         )
 
-    @serialize_list
+    @serialize
     def get_gateway_endpoints(
         self,
         device_name="",
         uuid="",
         verbose=False,
         *,
-        return_tags=[],
+        return_tags: list[str] = None,
     ):
         gw = self.get_gateway(device_name, uuid, return_tags=["domainName"])
         mac_short = gw["domainName"].replace("SKIGW", "")
@@ -4229,7 +4054,7 @@ class Axl(object):
 
     @serialize
     @check_tags("getLineGroup")
-    def get_line_group(self, name: str, *, return_tags=[]) -> dict:
+    def get_line_group(self, name: str, *, return_tags: list[str] = None) -> dict:
         tags = _tag_handler(return_tags)
         try:
             return self.client.getLineGroup(name=name, returnedTags=tags)["return"][
@@ -4238,9 +4063,9 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
-    @serialize_list
+    @serialize
     @check_tags("listLineGroup")
-    def list_line_groups(self, *, return_tags=[]) -> list[dict]:
+    def list_line_groups(self, *, return_tags: list[str] = None) -> list[dict]:
         tags = _tag_handler(return_tags)
         try:
             return self.client.listLineGroup(searchCriteria="%", returnedTags=tags)[
