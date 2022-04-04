@@ -33,6 +33,9 @@ log.addHandler(s_handler)
 log.info(f"----- NEW {__name__} SESSION -----")
 
 class AsyncClientExt(AsyncClient):
+    """Extended zeep.AsyncClient with upstream fix yet to be merged.
+    When change at https://github.com/mvantellingen/python-zeep/pull/1202 is merged, this should no longer be needed.
+    """
     def create_service(self, binding_name, address):
         """Create a new AsyncServiceProxy for the given binding name and address.
         :param binding_name: The QName of the binding
@@ -50,7 +53,32 @@ class AsyncClientExt(AsyncClient):
 
 
 class AsyncAXL:
-    def __init__(self, username: str, password: str, server: str, port: str = "8443") -> None:
+    """An asynchronous interface for the AXL API.
+    """
+    def __init__(self, username: str, password: str, server: str, port: str = "8443", *, version: str = None) -> None:
+        """Connect to your UCM's AXL server.
+
+        Args:
+            username (str): A user with AXL permissions
+            password (str): The password of the user
+            server (str): The base URL of your UCM server, no 'http://' or 'https://' needed
+            port (str, optional): The port at which UCM can be accessed. Defaults to "8443".
+
+        Raises:
+            URLInvalidError: An invalid URL for 'server' was provided
+            UCMInvalidError: The 'server' address does not point to a UCM server
+            UCMConnectionFailure: The connection to 'server' timed out or could not be completed
+            UCMNotFoundError: The 'server' URL could not be resolved
+            ConnectionError: An unknown error is preventing a connection to the UCM server
+            UDSConnectionError: Cannot connect to the UCM's UDS service. If UDS is not active, please supply your UCM version e.g. 'version=11.5'
+            UDSParseError: Could not parse the UCM version number from UDS. Please contact the maintainer of this project if you get this exception
+            UCMVersionError: The UCM version is either invalid or unsupported
+            UCMVersionInvalid: An unsupported UCV version is detected
+            AXLInvalidCredentials: 
+            AXLConnectionFailure: 
+            AXLNotFoundError: 
+            AXLException: An unknown error is preventing a connection to the AXL server
+        """
         log.info(f"Attempting to verify {server} on port {port} is a valid UCM server...")
         try:
             ucm_is_valid: bool = validate_ucm_server(server, port)
