@@ -12,10 +12,10 @@ from zeep import AsyncClient, Settings
 from zeep.client import AsyncServiceProxy
 from zeep.transports import AsyncTransport
 from zeep.exceptions import Fault
-from zeep.helpers import serialize_object
 import httpx
 import logging
 from logging.handlers import RotatingFileHandler
+import re
 
 # LOGGING SETTINGS
 log = logging.getLogger(__name__)
@@ -94,12 +94,23 @@ class AsyncAXL:
             log.error(f"Could not connect to {server}, unknown error occured")
             raise ConnectionError()
         
-        try:
-            cucm_version = get_ucm_version(server, port)
-        except (UDSConnectionError, UDSParseError, UCMVersionError) as err:
-            log.exception(err)
-            raise
-        log.debug(f"Found UCM version: {cucm_version}")
+        if version is not None:
+            if (match := re.search(r"^(\d{1,2}(?:\.\d{1})?)", version)) is None:
+                raise InvalidArguments(f"{version=} is not a valid UCM version")
+            parsed_version = match.group(0)
+            log.debug(f"{version=}, {parsed_version=}")
+            if "." not in parsed_version:
+                log.debug(f"Supplied UCM version '{parsed_version}' didn't have a decimal place, adding '.0' to end.")
+                parsed_version += ".0"
+            cucm_version = parsed_version
+            log.debug(f"Using user supplied version '{parsed_version}'")
+        else:
+            try:
+                cucm_version = get_ucm_version(server, port)
+            except (UDSConnectionError, UDSParseError, UCMVersionError) as err:
+                log.exception(err)
+                raise
+            log.debug(f"Found UCM version: {cucm_version}")
         
         wsdl_path = cfg.AXL_DIR / "schema" / cucm_version / "AXLAPI.wsdl"
         log.debug(f"WSDL Path: {wsdl_path}")
