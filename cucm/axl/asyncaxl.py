@@ -16,6 +16,7 @@ import httpx
 import logging
 from logging.handlers import RotatingFileHandler
 import re
+from enum import Enum, unique
 
 # LOGGING SETTINGS
 logdir = rootcfg.LOG_DIR
@@ -34,6 +35,20 @@ s_handler.setFormatter(s_format)
 log.addHandler(f_handler)
 log.addHandler(s_handler)
 log.info(f"----- NEW {__name__} SESSION -----")
+
+@unique
+class APICall(Enum):
+    GET = "GET"
+    ADD = "ADD"
+    LIST = "LIST"
+    UPDATE = "UPDATE"
+    DO = "DO"
+    REMOVE = "REMOVE"
+    RESTART = "RESTART"
+    RESET = "RESET"
+    WIPE = "WIPE"
+
+TASK_COUNTER = 0
 
 class AsyncClientExt(AsyncClient):
     """Extended zeep.AsyncClient with upstream fix yet to be merged.
@@ -142,11 +157,39 @@ class AsyncAXL:
         )
         log.info(f"AXL Async client created for {server}")
 
+
+    async def _generic_soap_call(self, element: str, action: APICall, children: list[str] = None, **kwargs):
+        if (func := getattr(self.aclient, element, None)) is None:
+            raise DumbProgrammerException(f"{element} is not an AXL element")
+        if children is None:
+            children = []
+
+        global TASK_COUNTER
+        TASK_COUNTER += 1
+        current_task = str(TASK_COUNTER)
+
+        log.info(f"({current_task.zfill(4)}) Performing a(n) {action.value} for {kwargs}")
+        try:
+            results = await func(**kwargs)
+            for child in children:
+                results = results[child]
+            log.info(f"({current_task.zfill(4)}) Completed successfully")
+            return results
+        except Fault:
+            if action is APICall.GET:
+                log.info(f"({current_task.zfill(4)}) Completed, but results empty")
+                return {}
+            elif action is APICall.LIST:
+                log.info(f"({current_task.zfill(4)}) Completed, but list empty")
+                return []
+            else:
+                log.exception()
+                raise
+        except KeyError:
+            raise DumbProgrammerException(f"Invalid children for {element}: {children}")
+        
+
     @serialize
     @check_tags("getPhone")
     async def get_phone(self, name: str, *, return_tags: list[str] = None) -> dict:
-        try:
-            result = await self.aclient.getPhone(name=name, returnedTags=return_tags)
-            return result["return"]['phone']
-        except (Fault, KeyError):
-            return {}
+        return await self._generic_soap_call("getPhone", APICall.GET, ["return", "phone"], name=name, returnedTags=return_tags)
