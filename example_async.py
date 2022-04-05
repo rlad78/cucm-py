@@ -1,11 +1,12 @@
 # %%
-import asyncio
 from cucm.axl.wsdl import *
 
 
 # %%
+import asyncio
 from cucm.axl.asyncaxl import AsyncAXL
 from cucm import get_credentials
+from cucm.axl.asyncaxl import APICall
 
 username, password = get_credentials()
 server = "ucm-01.clemson.edu"
