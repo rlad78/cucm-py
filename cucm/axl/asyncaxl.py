@@ -292,11 +292,15 @@ class AsyncAXL:
 
     @serialize
     @check_tags("getPhone")
-    async def get_phone(self, name: str, *, return_tags: list[str] = None) -> dict:
-        return await self._generic_soap_call(
+    async def get_phone(
+        self, name: str = "", uuid: str = "", *, return_tags: list[str] = None
+    ) -> dict:
+        return await self._generic_soap_with_uuid(
             "getPhone",
             APICall.GET,
+            "name",
             ["return", "phone"],
             name=name,
+            uuid=uuid,
             returnedTags=return_tags,
         )
