@@ -1,5 +1,6 @@
 # %%
 from cucm.axl.wsdl import *
+from cucm.debug import identify_bad_tag
 
 
 # %%
@@ -13,3 +14,4 @@ ucm = Axl(username, password, server)
 
 
 # %%
+identify_bad_tag(ucm, "getGatewaySccpEndpoints", {"name": "AN1CB0CA1430000"})

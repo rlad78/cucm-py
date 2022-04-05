@@ -4310,6 +4310,22 @@ class Axl(object):
                         f"[{i}/{len(lgs)}] Reset '{lg_futs[f]}' with {f.result()} devices."
                     )
 
+    @check_tags("getGatewaySccpEndpoints")
+    def tag_test(a="", *, return_tags=[]):
+        tags = _tag_handler(return_tags)
+
+        def print_tags(t: dict, spacing=0):
+            for k, v in t.items():
+                if type(v) == dict:
+                    print(f"{' '*spacing}{k}:")
+                    print(f"{' '*spacing}{'{'}")
+                    print_tags(v, spacing + 2)
+                    print(f"{' '*spacing}{'}'}")
+                else:
+                    print(f"{' '*spacing}{k}: {v}")
+
+        print_tags(tags)
+
 
 # ****************************
 # ----- UTILITY FUCTIONS -----

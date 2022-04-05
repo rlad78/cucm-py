@@ -1,3 +1,4 @@
+from typing import Union
 from cucm.axl import Axl, get_credentials
 from cucm.axl.exceptions import (
     URLInvalidError,
@@ -13,7 +14,7 @@ from cucm.axl.exceptions import (
     AXLClassException,
     WSDLException,
 )
-from cucm.axl.wsdl import print_element_layout
+from cucm.axl.wsdl import print_element_layout, fix_return_tags, get_return_tags
 import keyring
 import sys, os
 
@@ -126,3 +127,74 @@ def print_soap_tree() -> None:
                 print_element_layout(ucm.zeep, element, show_required=True)
             except WSDLException as e:
                 print(f"[ERROR]({element}): {e.__str__}")
+
+
+def identify_bad_tag(ucm: Axl, element: str, demo_data: dict) -> None:
+    tags = fix_return_tags(
+        z_client=ucm.zeep, element_name=element, tags=get_return_tags(ucm.zeep, element)
+    )
+
+    class TestingException(Exception):
+        def __init__(
+            self,
+            chain: Union[str, list[str]],
+            bottom_exc: object,
+            result: dict = None,
+            *args: object,
+        ) -> None:
+            if type(chain) == str:
+                self.chain = [chain]
+            elif type(chain) == list:
+                self.chain = chain
+            self.bottom_exc = bottom_exc
+            self.result = None
+            super().__init__(*args)
+
+        def __str__(self) -> str:
+            if self.result is None:
+                return (
+                    f"Issue caused by {' -> '.join(self.chain)}"
+                    + "\n"
+                    + str(self.bottom_exc)
+                )
+            else:
+                return (
+                    f"Issue caused by {' -> '.join(self.chain)}"
+                    + "\n"
+                    + str(self.bottom_exc + "\n" + self.result)
+                )
+
+    working_dict = {}
+
+    def test_tags(t: dict, level_dict: dict, level=0):
+        for k, v in t.items():
+            if type(v) == dict:
+                level_dict[k] = {}
+                try:
+                    test_tags(t[k], level_dict[k], level + 1)
+                except Exception as e:
+                    if not isinstance(e, TestingException):
+                        raise e
+                    elif level == 0:
+                        e: TestingException
+                        raise TestingException(
+                            chain=[k] + e.chain,
+                            bottom_exc=e.bottom_exc,
+                            result=working_dict,
+                        )
+                    else:
+                        e: TestingException
+                        raise TestingException(
+                            chain=[k] + e.chain, bottom_exc=e.bottom_exc
+                        )
+            else:
+                level_dict[k] = v
+                try:
+                    ucm._base_soap_call(
+                        element, {**demo_data, "returnedTags": working_dict}, []
+                    )
+                except Exception as e:
+                    raise TestingException(f"{k}: {v}", e)
+
+    test_tags(tags[0], working_dict)
+    print("Tags working properly")
