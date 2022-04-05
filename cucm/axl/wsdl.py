@@ -2,7 +2,7 @@ from typing import Union
 from zeep import Client
 from zeep.xsd.elements.element import Element
 from zeep.xsd.elements.indicators import Choice, Sequence
-from zeep.xsd import Nil
+from zeep.xsd import Nil, AnyObject
 from cucm.axl.exceptions import (
     WSDLDrillDownException,
     WSDLException,
@@ -313,7 +313,10 @@ class AXLElement:
 
     def to_dict(self) -> dict:
         if not self.children:
-            return {self.name: True}
+            if hasattr(self.type, "elements"):
+                return {self.name: AnyObject(self.type, {})}
+            else:
+                return {self.name: self.type.pythonvalue(True)}
         elif self.type == Choice:
             return self.children[0].to_dict()
         elif self.type == Sequence:
