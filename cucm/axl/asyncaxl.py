@@ -257,6 +257,23 @@ class AsyncAXL:
         children: list[str] = None,
         **kwargs,
     ):
+        """Same as _generic_soap_call, but looks for 'uuid' and the value of 'base_field' in the supplied kwargs. If a UUID exists, it will use this value in the SOAP call over the 'base_field' value.
+
+        Args:
+            element (str): Name of the element being used for the call i.e. getPhone
+            action (APICall): Type of call being made (usually the prefix of the element)
+            base_field (str): Key used in kwargs as the primary identifier (i.e. 'name', 'mac', etc.)
+            children (list[str], optional): Keys of the returned nested object that lead to the desired information. Defaults to None.
+
+        Raises:
+            DumbProgrammerException: When 'base_field' doesn't exist in kwargs
+            InvalidArguments: When the values for 'base_field' and 'uuid' are both empty
+
+        Returns:
+            zeep.object: When valid data is found (@serialize will turn this into a dict)
+            dict: Empty dict when GET call is successful but no data is found
+            list: Empty list when LIST call is successful but no items are returned
+        """
         if base_field not in kwargs.keys() or "uuid" not in kwargs.keys():
             raise DumbProgrammerException(
                 f"'{base_field}' was not a provided field in kwargs"
