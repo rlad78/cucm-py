@@ -183,9 +183,9 @@ class AsyncAXL:
         )
         log.info(f"AXL Async client created for {server}")
 
-    ###############################
-    # ==== TEMPLATES & HELPERS ====
-    ###############################
+    #################################
+    # ==== TEMPLATES & HELPERS ==== #
+    #################################
 
     async def _generic_soap_call(
         self, element: str, action: APICall, children: list[str] = None, **kwargs
@@ -289,6 +289,10 @@ class AsyncAXL:
             raise InvalidArguments(f"No {base_field} or uuid values found in kwargs")
 
         return await self._generic_soap_call(element, action, children, **kwargs)
+
+    ##################
+    # ==== GETs ==== #
+    ##################
 
     @serialize
     @check_tags("getPhone")
