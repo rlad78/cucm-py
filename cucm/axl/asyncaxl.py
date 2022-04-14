@@ -299,6 +299,16 @@ class AsyncAXL:
     async def get_phone(
         self, name: str = "", uuid: str = "", *, return_tags: list[str] = None
     ) -> dict:
+        """Attemps to retrieve the phone device with the given 'name' or 'uuid'. Returns an empty dict if the device is not found.
+
+        Args:
+            name (str, optional): Name of the device, including the prefix (SEP, AN, etc). Defaults to "".
+            uuid (str, optional): UUID of the device. Can be found via other AXL calls. Defaults to "".
+            return_tags (list[str], optional): Tags to choose what data will be returned. Leave as None to return all tags. Defaults to None.
+
+        Returns:
+            dict: Phone data, empty if phone isn't found.
+        """
         return await self._generic_soap_with_uuid(
             "getPhone",
             APICall.GET,
