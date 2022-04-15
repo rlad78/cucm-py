@@ -33,6 +33,7 @@ from tqdm import tqdm
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+
 class Axl(object):
     def __init__(
         self,
@@ -499,6 +500,7 @@ class Axl(object):
     # ===== SQL QUERIES =====
     #########################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def run_sql_query(self, query: str) -> dict:
         """Legacy function. Use sql_query() instead.
 
@@ -538,6 +540,7 @@ class Axl(object):
 
         return result
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def sql_query(self, query: str) -> Union[list[list[str]], Fault]:
         """Runs an SQL query on the UCM DB and returns the results.
 
@@ -572,6 +575,7 @@ class Axl(object):
 
         return parsed_data
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def sql_update(self, query: str) -> dict:
         """Run an update on the UCM SQL DB.
 
@@ -596,6 +600,7 @@ class Axl(object):
     # ===== LDAP =====
     ##################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     @serialize
     @check_tags("listLdapDirectory")
     def get_ldap_dir(
@@ -631,6 +636,7 @@ class Axl(object):
             raise AXLFault(e)
 
     # ? don't want to do LDAP sync to test this one out...
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     @serialize
     def do_ldap_sync(self, uuid):
         """
@@ -647,6 +653,7 @@ class Axl(object):
     # ===== DEVICE ACTIONS =====
     ############################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     @serialize
     @operation_tag("doChangeDNDStatus")
     def do_change_dnd_status(self, user_id: str, dnd_enabled: bool) -> dict:
@@ -671,6 +678,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     # ? no idea what this does
     @check_arguments("doDeviceLogin")
     def do_device_login(self, **kwargs):
@@ -679,6 +687,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     # ? no idea what this does
     @check_arguments("doDeviceLogout")
     def do_device_logout(self, **kwargs):
@@ -687,6 +696,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     @serialize
     @operation_tag("doDeviceReset")
     def do_device_reset(self, name="", uuid="") -> Union[dict, Fault, None]:
@@ -719,6 +729,7 @@ class Axl(object):
             except Fault as e:
                 return e
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     # ? can't risk testing this
     @operation_tag("resetSipTrunk")
     def reset_sip_trunk(self, name="", uuid=""):
@@ -743,6 +754,7 @@ class Axl(object):
     # ===== LOCATIONS =====
     #######################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     @serialize
     @check_tags(element_name="listLocation")
     def get_locations(
@@ -784,6 +796,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     @serialize
     @operation_tag("getLocation")
     def get_location(self, name="", uuid="") -> Union[dict, Fault, None]:
@@ -882,6 +895,7 @@ class Axl(object):
             except Fault as e:
                 return e
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     @operation_tag("removeLocation")
     def delete_location(self, name="", uuid=""):
         """Deletes the requested location.
@@ -927,6 +941,7 @@ class Axl(object):
     # ===== REGIONS =====
     #####################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     @serialize
     @check_tags("listRegion")
     def get_regions(self, *, return_tags: list[str] = None) -> Union[list[dict], Fault]:
@@ -952,6 +967,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     @serialize
     @check_tags("getRegion")
     def get_region(self, name: str, *, return_tags=["name", "relatedRegions"]):
@@ -980,6 +996,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_region(self, name="", newName="", moh_region=""):
         """
         Update region and assign region to all other regions
@@ -1040,6 +1057,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_region(self, **args):
         """
         Delete a location
@@ -1056,6 +1074,7 @@ class Axl(object):
     # ===== SRST =====
     ##################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_srsts(self, tagfilter={"uuid": ""}):
         """
         Get all SRST details
@@ -1069,6 +1088,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_srst(self, name):
         """
         Get SRST information
@@ -1080,6 +1100,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def add_srst(self, name, ip_address, port=2000, sip_port=5060):
         """
         Add SRST
@@ -1101,6 +1122,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_srst(self, name):
         """
         Delete a SRST
@@ -1112,6 +1134,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_srst(self, name, newName=""):
         """
         Update a SRST
@@ -1128,6 +1151,7 @@ class Axl(object):
     # ===== DEVICE POOLS =====
     ##########################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_device_pools(
         self,
         tagfilter={
@@ -1152,6 +1176,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_device_pool(self, **args):
         """
         Get device pool parameters
@@ -1163,6 +1188,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def add_device_pool(
         self,
         name,
@@ -1209,6 +1235,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_device_pool(self, **args):
         """
         Update a device pools route group and media resource group list
@@ -1232,6 +1259,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_device_pool(self, **args):
         """
         Delete a Device pool
@@ -1247,6 +1275,7 @@ class Axl(object):
     # ===== CONFERENCE BRIDGES =====
     ################################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_conference_bridges(
         self,
         tagfilter={
@@ -1269,6 +1298,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_conference_bridge(self, name):
         """
         Get conference bridge parameters
@@ -1280,6 +1310,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def add_conference_bridge(
         self,
         name,
@@ -1313,6 +1344,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_conference_bridge(self, **args):
         """
         Update a conference bridge
@@ -1330,6 +1362,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_conference_bridge(self, name):
         """
         Delete a Conference bridge
@@ -1345,6 +1378,7 @@ class Axl(object):
     # ===== TRANSCODERS =====
     #########################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_transcoders(
         self, tagfilter={"name": "", "description": "", "devicePoolName": ""}
     ):
@@ -1360,6 +1394,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_transcoder(self, name):
         """
         Get conference bridge parameters
@@ -1371,6 +1406,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def add_transcoder(
         self,
         name,
@@ -1398,6 +1434,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_transcoder(self, **args):
         """
         Add a transcoder
@@ -1413,6 +1450,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_transcoder(self, name):
         """
         Delete a Transcoder
@@ -1428,6 +1466,7 @@ class Axl(object):
     # ===== MTP =====
     #################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_mtps(self, tagfilter={"name": "", "description": "", "devicePoolName": ""}):
         """
         Get mtps
@@ -1441,6 +1480,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_mtp(self, name):
         """
         Get mtp parameters
@@ -1452,6 +1492,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def add_mtp(
         self,
         name,
@@ -1479,6 +1520,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_mtp(self, **args):
         """
         Update an MTP
@@ -1494,6 +1536,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_mtp(self, name):
         """
         Delete an MTP
@@ -1509,6 +1552,7 @@ class Axl(object):
     # ===== H323 GATEWAYS =====
     ###########################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_h323_gateways(
         self,
         tagfilter={
@@ -1531,6 +1575,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_h323_gateway(self, name):
         """
         Get H323 Gateway parameters
@@ -1542,6 +1587,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def add_h323_gateway(self, **args):
         """
         Add H323 gateway
@@ -1582,6 +1628,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_h323_gateway(self, **args):
         """
 
@@ -1593,6 +1640,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_h323_gateway(self, name):
         """
         Delete a H323 gateway
@@ -1608,6 +1656,7 @@ class Axl(object):
     # ===== ROUTE GROUPS =====
     ##########################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_route_groups(self, tagfilter={"name": "", "distributionAlgorithm": ""}):
         """
         Get route groups
@@ -1621,6 +1670,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_route_group(self, **args):
         """
         Get route group
@@ -1633,6 +1683,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def add_route_group(self, name, distribution_algorithm="Top Down", members=[]):
         """
         Add a route group
@@ -1663,6 +1714,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_route_group(self, **args):
         """
         Delete a Route group
@@ -1674,6 +1726,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_route_group(self, **args):
         """
         Update a Route group
@@ -1691,6 +1744,7 @@ class Axl(object):
     # ===== ROUTE LISTS =====
     #########################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_route_lists(self, tagfilter={"name": "", "description": ""}):
         """
         Get route lists
@@ -1704,6 +1758,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_route_list(self, **args):
         """
         Get route list
@@ -1771,6 +1826,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_route_list(self, **args):
         """
         Delete a Route list
@@ -1783,6 +1839,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_route_list(self, **args):
         """
         Update a Route list
@@ -1804,6 +1861,7 @@ class Axl(object):
     # ===== ROUTE PARTITIONS =====
     ##############################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_partitions(self, tagfilter={"name": "", "description": ""}):
         """
         Get partitions
@@ -1817,6 +1875,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_partition(self, **args):
         """
         Get partition details
@@ -1829,6 +1888,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def add_partition(self, name, description="", time_schedule_name="All the time"):
         """
         Add a partition
@@ -1848,6 +1908,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_partition(self, **args):
         """
         Delete a partition
@@ -1859,6 +1920,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_partition(self, **args):
         """
         Update calling search space
@@ -1880,6 +1942,7 @@ class Axl(object):
     # ===== CSS =====
     #################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_calling_search_spaces(self, tagfilter={"name": "", "description": ""}):
         """
         Get calling search spaces
@@ -1893,6 +1956,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_calling_search_space(self, **css):
         """
         Get Calling search space details
@@ -1905,6 +1969,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def add_calling_search_space(self, name, description="", members=[]):
         """
         Add a Calling search space
@@ -1934,6 +1999,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_calling_search_space(self, **args):
         """
         Delete a Calling search space
@@ -1945,6 +2011,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_calling_search_space(self, **args):
         """
         Update calling search space
@@ -1966,6 +2033,7 @@ class Axl(object):
     # ===== ROUTE PATTERNS =====
     ############################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_route_patterns(
         self, tagfilter={"pattern": "", "description": "", "uuid": ""}
     ):
@@ -1982,6 +2050,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_route_pattern(self, pattern="", uuid=""):
         """
         Get route pattern
@@ -2010,6 +2079,7 @@ class Axl(object):
             except Fault as e:
                 return e
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def add_route_pattern(
         self,
         pattern,
@@ -2058,6 +2128,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_route_pattern(self, **args):
         """
         Delete a route pattern
@@ -2071,6 +2142,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_route_pattern(self, **args):
         """
         Update a route pattern
@@ -2093,6 +2165,7 @@ class Axl(object):
     # ===== MEDIA RESOURCE GROUPS =====
     ###################################
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_media_resource_groups(self, tagfilter={"name": "", "description": ""}):
         """
         Get media resource groups
@@ -2106,6 +2179,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_media_resource_group(self, name):
         """
         Get a media resource group details
@@ -2117,6 +2191,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def add_media_resource_group(
         self, name, description="", multicast="false", members=[]
     ):
@@ -2143,6 +2218,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_media_resource_group(self, **args):
         """
         Update a media resource group
@@ -2157,6 +2233,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_media_resource_group(self, name):
         """
         Delete a Media resource group
@@ -2168,6 +2245,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_media_resource_group_lists(self, tagfilter={"name": ""}):
         """
         Get media resource groups
@@ -2181,6 +2259,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def get_media_resource_group_list(self, name):
         """
         Get a media resource group list details
@@ -2192,6 +2271,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def add_media_resource_group_list(self, name, members=[]):
         """
         Add a media resource group list
@@ -2213,6 +2293,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def update_media_resource_group_list(self, **args):
         """
         Update a media resource group list
@@ -2227,6 +2308,7 @@ class Axl(object):
         except Fault as e:
             raise AXLFault(e)
 
+    # ! ##### IMPLEMENT IN ASYNCIO #####
     def delete_media_resource_group_list(self, name):
         """
         Delete a Media resource group list
@@ -2461,7 +2543,9 @@ class Axl(object):
 
     @serialize
     @check_tags("getRoutePartition")
-    def get_route_partition(self, name="", uuid="", *, return_tags: list[str] = None) -> dict:
+    def get_route_partition(
+        self, name="", uuid="", *, return_tags: list[str] = None
+    ) -> dict:
         tags = _tag_handler(return_tags)
         return self._base_soap_call_uuid(
             "getRoutePartition",
