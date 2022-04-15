@@ -587,7 +587,7 @@ def validate_arguments(
     if not kwargs:
         return None
 
-    root: AXLElement = AXLElement(__get_element_by_name(z_client, element_name))
+    root: AXLElement = get_tree(z_client, element_name)
     if (
         child is not None
     ):  # if the child needs to be the reference point instead of root node
