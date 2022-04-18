@@ -520,6 +520,9 @@ def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> dic
     tag_tree = tree["returnedTags"]
     return_tags = {}
     for tag in tags:
+        # uuid guard
+        if tag == 'uuid':
+            continue
         if (found := tag_tree.get(tag, None)) is not None:
             if found.children:
                 return_tags.update(found.to_dict())
