@@ -32,7 +32,7 @@ def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
         return d_copy
 
     if tags is None:
-        return data
+        return check_value(data)
 
     working_data = deepcopy(data)
     for tag, value in data.items():
@@ -102,7 +102,8 @@ def serialize(func: TCallable) -> TCallable:
             r_dict = serialize_object(r_value, dict)
             return _tag_serialize_filter(f_kwargs["return_tags"], r_dict)
         else:
-            return serialize_object(r_value, dict)
+            r_dict = serialize_object(r_value, dict)
+            return _tag_serialize_filter(None, r_dict)
 
     def processing_list(r_value, f_kwargs):
         if (
@@ -127,6 +128,8 @@ def serialize(func: TCallable) -> TCallable:
                 )
                 for element in r_value
             ]
+        else:
+            return [_tag_serialize_filter(None, serialize_object(element, dict)) for element in r_value]
              
     @wraps(func)
     def wrapper(*args, **kwargs):
