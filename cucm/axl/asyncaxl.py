@@ -61,8 +61,8 @@ class APICall(Enum):
 
 
 TASK_COUNTER = 0
-TASK_COUNT_SEM = asyncio.Semaphore()
-PHONE_MANIP_SEM = defaultdict(asyncio.Semaphore)
+TASK_COUNT_LOCK = asyncio.Lock()
+PHONE_MANIP_LOCKS = defaultdict(asyncio.Lock)
 
 
 class AsyncClientExt(AsyncClient):
@@ -786,10 +786,17 @@ class AsyncAXL:
 
 
 async def checkout_task() -> int:
-    global TASK_COUNT_SEM
+    global TASK_COUNT_LOCK
     global TASK_COUNTER
 
-    sem = TASK_COUNT_SEM
-    async with sem:
+    lock = TASK_COUNT_LOCK
+    async with lock:
         TASK_COUNTER += 1
         return copy(TASK_COUNTER)
+
+def task_string(task_number: int) -> str:
+    return f"[{str(task_number).zfill(4)}]"
+
+async def checkout_task_str() -> str:
+    task_number = await checkout_task()
+    return task_string(task_number)
