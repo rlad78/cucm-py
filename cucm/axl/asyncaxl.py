@@ -506,6 +506,17 @@ class AsyncAXL:
         return await self._generic_soap_call("listPhone", APICall.LIST, **args_dict)
 
     @serialize
+    async def get_phone_lines(self, name: str = "", uuid: str = "") -> list[dict]:
+        tags = fix_return_tags(self.zeep, "getPhone", ["lines"])
+        result = await self._generic_soap_with_uuid(
+            "getPhone", APICall.GET, "name", ["return", "phone", "lines", "line"], name=name, uuid=uuid, returnedTags=tags
+        )
+        if not result:
+            return []  # adjust for empty dict returned
+        else:
+            return result
+
+    @serialize
     @check_tags("getLine")
     async def get_directory_number(
         self,
