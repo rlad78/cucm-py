@@ -430,9 +430,9 @@ class AsyncAXL:
         template_data.update({"active": "true", "usage": Nil}, **kwargs)
         return self.__extract_template("addLine", template_data, "line")
 
-    ##################
-    # ==== GETs ==== #
-    ##################
+    ####################
+    # ==== PHONES ==== #
+    ####################
 
     @serialize
     @check_tags("getPhone")
@@ -505,16 +505,163 @@ class AsyncAXL:
 
         return await self._generic_soap_call("listPhone", APICall.LIST, **args_dict)
 
+    @check_arguments("addPhone")
+    async def add_phone(
+        self,
+        name: str,
+        description: str,
+        model: str,
+        device_pool: str,
+        button_template: str,
+        protocol="SIP",
+        common_phone_profile="Standard Common Phone Profile",
+        location="Hub_None",
+        use_trusted_relay_point: Union[str, bool] = "Default",
+        built_in_bridge="Default",
+        packet_capture_mode="None",
+        mobility_mode="Default",
+        **kwargs,
+    ) -> str:
+        phone_details = {
+            "name": name,
+            "description": description,
+            "product": model,
+            "class": "Phone",
+            "protocol": protocol,
+            "protocolSide": "User",
+            "devicePoolName": device_pool,
+            "commonPhoneConfigName": common_phone_profile,
+            "locationName": location,
+            "useTrustedRelayPoint": use_trusted_relay_point,
+            "phoneTemplateName": button_template,
+            "primaryPhoneName": Nil,
+            "builtInBridgeStatus": built_in_bridge,
+            "packetCaptureMode": packet_capture_mode,
+            "certificateOperation": "No Pending Operation",
+            "deviceMobilityMode": mobility_mode,
+            **kwargs,
+        }
+        return await self._generic_soap_add("addPhone", "phone", **phone_details)
+
+    @check_arguments("addPhone")
+    async def add_phone_from_template(
+        self,
+        name: str,
+        description: str,
+        model: str,
+        phone_template: str,
+        **kwargs,
+    ) -> str:
+        template_data = await self._from_phone_template(
+            phone_template, name=name, description=description, product=model, **kwargs
+        )
+        return await self._generic_soap_add("addPhone", "phone", **template_data)
+
+    #########################
+    # ==== PHONE LINES ==== #
+    #########################
+
     @serialize
     async def get_phone_lines(self, name: str = "", uuid: str = "") -> list[dict]:
         tags = fix_return_tags(self.zeep, "getPhone", ["lines"])
         result = await self._generic_soap_with_uuid(
-            "getPhone", APICall.GET, "name", ["return", "phone", "lines", "line"], name=name, uuid=uuid, returnedTags=tags
+            "getPhone",
+            APICall.GET,
+            "name",
+            ["return", "phone", "lines", "line"],
+            name=name,
+            uuid=uuid,
+            returnedTags=tags,
         )
         if not result:
             return []  # adjust for empty dict returned
         else:
             return result
+
+    async def add_phone_line(
+        self,
+        pattern: str,
+        route_partition: str,
+        phone_name: str = "",
+        phone_uuid: str = "",
+        *,
+        line_index: int = -1,
+    ) -> None:
+        this_task = await checkout_task()
+
+        if phone_uuid and not phone_name:
+            # if the uuid is given, we have to get the name for async locks,
+            # then get the device again after the asyncio lock to make sure we
+            # have the latest line config
+            device = await self.get_phone(uuid=phone_uuid, return_tags=["name"])
+            if (phone_name := device.get("name", None)) is None:
+                raise InvalidArguments(f"{phone_uuid=} does not lead to a valid phone")
+
+        sem = PHONE_MANIP_SEM[phone_name]
+        if sem.locked():
+            log.debug(f"Waiting on locked resource for phone '{phone_name}'")
+
+        async with sem:
+            log.debug(f"Locking resources for phone '{phone_name}'...")
+            # while we're looking for the phone, make sure the DN exists
+            find_dn = asyncio.create_task(
+                self.get_directory_number(
+                    pattern,
+                    route_partition,
+                    return_tags=["pattern", "routePartitionName"],
+                )
+            )
+
+            device = await self.get_phone(name=phone_name, return_tags=["lines"])
+            if (original_lines := device.get("lines", "MISSING")) == "MISSING":
+                raise InvalidArguments(f"Phone '{phone_name}' could not be found")
+            elif original_lines is None:
+                original_lines = []
+            else:
+                original_lines = original_lines["line"]
+
+            dn = await find_dn
+            if not dn:
+                raise InvalidArguments(
+                    f"DN with {pattern=} and {route_partition=} could not be found. Does it exist?"
+                )
+
+            new_dn = {
+                "directoryNumber": pattern,
+                "routePartitionName": route_partition,
+            }
+            new_lines = [
+                {
+                    "directoryNumber": dn["dirn"]["pattern"],
+                    "routePartitionName": dn["dirn"]["routePartitionName"],
+                }
+                for dn in original_lines
+            ]
+            if line_index < 0 or line_index > len(original_lines):
+                new_lines.append(new_dn)
+                log.info(
+                    f"[{str(this_task).zfill(4)}] Adding Line ({pattern}, {route_partition}) to Phone '{phone_name}'..."
+                )
+            else:
+                new_lines.insert(line_index, new_dn)
+                log.info(
+                    f"[{str(this_task).zfill(4)}] Adding Line ({pattern}, {route_partition}) to Phone '{phone_name}' at position {line_index}..."
+                )
+
+            await self._generic_soap_call(
+                "updatePhone",
+                APICall.UPDATE,
+                task_number=this_task,
+                name=phone_name,
+                lines={"line": new_lines},
+            )
+            log.info(f"[{str(this_task).zfill(4)}] Line added!")
+
+        log.debug(f"Released resources for phone '{phone_name}'")
+
+    ###############################
+    # ==== DIRECTORY NUMBERS ==== #
+    ###############################
 
     @serialize
     @check_tags("getLine")
@@ -617,62 +764,6 @@ class AsyncAXL:
             "listLine", APICall.LIST, ["return", "line"], **args_pack
         )
 
-    ##################
-    # ==== ADDs ==== #
-    ##################
-
-    @check_arguments("addPhone")
-    async def add_phone(
-        self,
-        name: str,
-        description: str,
-        model: str,
-        device_pool: str,
-        button_template: str,
-        protocol="SIP",
-        common_phone_profile="Standard Common Phone Profile",
-        location="Hub_None",
-        use_trusted_relay_point: Union[str, bool] = "Default",
-        built_in_bridge="Default",
-        packet_capture_mode="None",
-        mobility_mode="Default",
-        **kwargs,
-    ) -> str:
-        phone_details = {
-            "name": name,
-            "description": description,
-            "product": model,
-            "class": "Phone",
-            "protocol": protocol,
-            "protocolSide": "User",
-            "devicePoolName": device_pool,
-            "commonPhoneConfigName": common_phone_profile,
-            "locationName": location,
-            "useTrustedRelayPoint": use_trusted_relay_point,
-            "phoneTemplateName": button_template,
-            "primaryPhoneName": Nil,
-            "builtInBridgeStatus": built_in_bridge,
-            "packetCaptureMode": packet_capture_mode,
-            "certificateOperation": "No Pending Operation",
-            "deviceMobilityMode": mobility_mode,
-            **kwargs,
-        }
-        return await self._generic_soap_add("addPhone", "phone", **phone_details)
-
-    @check_arguments("addPhone")
-    async def add_phone_from_template(
-        self,
-        name: str,
-        description: str,
-        model: str,
-        phone_template: str,
-        **kwargs,
-    ) -> str:
-        template_data = await self._from_phone_template(
-            phone_template, name=name, description=description, product=model, **kwargs
-        )
-        return await self._generic_soap_add("addPhone", "phone", **template_data)
-
     @check_arguments("addLine")
     async def add_directory_number(
         self, pattern: str, route_partition: str, **kwargs
@@ -703,87 +794,6 @@ class AsyncAXL:
         )
         return await self._generic_soap_add("addLine", "line", **template_data)
 
-    async def add_phone_line(
-        self,
-        pattern: str,
-        route_partition: str,
-        phone_name: str = "",
-        phone_uuid: str = "",
-        *,
-        line_index: int = -1,
-    ) -> None:
-        this_task = await checkout_task()
-
-        if phone_uuid and not phone_name:
-            # if the uuid is given, we have to get the name for async locks,
-            # then get the device again after the asyncio lock to make sure we
-            # have the latest line config
-            device = await self.get_phone(uuid=phone_uuid, return_tags=["name"])
-            if (phone_name := device.get("name", None)) is None:
-                raise InvalidArguments(f"{phone_uuid=} does not lead to a valid phone")
-
-        sem = PHONE_MANIP_SEM[phone_name]
-        if sem.locked():
-            log.debug(f"Waiting on locked resource for phone '{phone_name}'")
-
-        async with sem:
-            log.debug(f"Locking resources for phone '{phone_name}'...")
-            # while we're looking for the phone, make sure the DN exists
-            find_dn = asyncio.create_task(
-                self.get_directory_number(
-                    pattern,
-                    route_partition,
-                    return_tags=["pattern", "routePartitionName"],
-                )
-            )
-
-            device = await self.get_phone(name=phone_name, return_tags=["lines"])
-            if (original_lines := device.get("lines", "MISSING")) == "MISSING":
-                raise InvalidArguments(f"Phone '{phone_name}' could not be found")
-            elif original_lines is None:
-                original_lines = []
-            else:
-                original_lines = original_lines["line"]
-
-            dn = await find_dn
-            if not dn:
-                raise InvalidArguments(
-                    f"DN with {pattern=} and {route_partition=} could not be found. Does it exist?"
-                )
-
-            new_dn = {
-                "directoryNumber": pattern,
-                "routePartitionName": route_partition,
-            }
-            new_lines = [
-                {
-                    "directoryNumber": dn["dirn"]["pattern"],
-                    "routePartitionName": dn["dirn"]["routePartitionName"],
-                }
-                for dn in original_lines
-            ]
-            if line_index < 0 or line_index > len(original_lines):
-                new_lines.append(new_dn)
-                log.info(
-                    f"[{str(this_task).zfill(4)}] Adding Line ({pattern}, {route_partition}) to Phone '{phone_name}'..."
-                )
-            else:
-                new_lines.insert(line_index, new_dn)
-                log.info(
-                    f"[{str(this_task).zfill(4)}] Adding Line ({pattern}, {route_partition}) to Phone '{phone_name}' at position {line_index}..."
-                )
-
-            await self._generic_soap_call(
-                "updatePhone",
-                APICall.UPDATE,
-                task_number=this_task,
-                name=phone_name,
-                lines={"line": new_lines},
-            )
-            log.info(f"[{str(this_task).zfill(4)}] Line added!")
-
-        log.debug(f"Released resources for phone '{phone_name}'")
-
 
 async def checkout_task() -> int:
     global TASK_COUNT_LOCK
@@ -794,8 +804,10 @@ async def checkout_task() -> int:
         TASK_COUNTER += 1
         return copy(TASK_COUNTER)
 
+
 def task_string(task_number: int) -> str:
     return f"[{str(task_number).zfill(4)}]"
+
 
 async def checkout_task_str() -> str:
     task_number = await checkout_task()
