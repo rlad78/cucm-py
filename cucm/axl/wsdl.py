@@ -1,3 +1,4 @@
+from functools import cache
 from typing import Union
 from zeep import Client
 from zeep.xsd.elements.element import Element
@@ -8,7 +9,6 @@ from cucm.axl.exceptions import (
     WSDLException,
     WSDLInvalidArgument,
     WSDLChoiceException,
-    DumbProgrammerException,
     TagNotValid,
     WSDLValueOnlyException,
 )
@@ -265,10 +265,6 @@ class AXLElement:
                     elif type(value[0]) == dict:
                         for entry in value:
                             self.validate(**{name: entry})
-                    # else:
-                    #     raise DumbProgrammerException(
-                    #         f"Didn't account for type {type(value)} for value type."
-                    #     )
 
     def return_tags(self) -> dict:
         if self.parent is not None:
@@ -289,27 +285,6 @@ class AXLElement:
                 nil_to_str(value)
 
         return tags_dict
-
-        # def get_element_tree(element: "AXLElement"):
-        #     if not element.children:
-        #         if element.parent.name == "returnedTags":
-        #             return Nil
-        #         else:
-        #             return ""
-        #     elif element.type == Choice:
-        #         return get_element_tree(element.children[0])
-        #     elif element.type == Sequence:
-        #         return {c.name: get_element_tree(c) for c in element.children}
-        #     else:
-        #         tree_dict: dict = dict()
-        #         for e in element.children:
-        #             if e.type == Choice:
-        #                 tree_dict[e.children[0].name] = get_element_tree(e.children[0])
-        #             else:
-        #                 tree_dict[e.name] = get_element_tree(e)
-        #         return tree_dict
-
-        # return get_element_tree(tags_element)
 
     def to_dict(self) -> dict:
         if not self.children:
@@ -397,53 +372,6 @@ def __get_element_by_name(z_client: Client, element_name: str) -> Element:
     return element
 
 
-def __get_element_child_args(
-    z_client: Client, element_name: str, child_name: str
-) -> list[str]:
-    # get element
-    elem_type = __get_element_by_name(z_client, element_name).type
-
-    # find searchCriteria
-    for child in elem_type.elements:
-        if child[0] == child_name:
-            criteria = child[1]  # * [0] is the name, [1] is the obj
-            break
-    else:
-        raise WSDLException(f"Could not find {child_name} for type {elem_type.name}")
-
-    # extract searchCriteria
-    return [e[0] for e in criteria.type.elements]
-
-
-def _get_element_tree(
-    z_client: Client, element=None, element_name=""
-) -> Union[dict, str]:
-    if element is not None:
-        pass
-    elif element_name:
-        element = __get_element_by_name(z_client, element_name)
-    else:
-        DumbProgrammerException(
-            "Used get_element_tree without passing in an element name or element obj"
-        )
-
-    if not hasattr(element.type, "elements") or (
-        element.max_occurs != 1 and element.max_occurs != "unbounded"
-    ):
-        return Nil
-
-    elem_tree: dict = dict()
-    for e_name, e_obj in element.type.elements_nested():
-        if e_name == "_value_1":
-            continue
-        elem_tree[e_name] = _get_element_tree(z_client, element=e_obj)
-    return elem_tree if len(elem_tree) > 0 else ""
-
-
-def get_search_criteria(z_client: Client, element_name: str) -> list[str]:
-    return __get_element_child_args(z_client, element_name, child_name="searchCriteria")
-
-
 def get_return_tags(z_client: Client, element_name: str) -> list[str]:
     try:
         return_tree = get_tree(z_client, element_name)["returnedTags"]
@@ -468,49 +396,12 @@ def get_return_tags(z_client: Client, element_name: str) -> list[str]:
 
     return extract_return_tags(return_tree)
 
-    # return __get_element_child_args(z_client, element_name, child_name="returnedTags")
-
-
-def get_return_tree(z_client: Client, element_name: str) -> dict:
-    root_element = __get_element_by_name(z_client, element_name)
-    if not hasattr(root_element.type, "elements"):
-        return {"error": f"no sub-elements for '{element_name}'"}
-
-    return AXLElement(root_element).return_tags()
-
 
 def get_tree(z_client: Client, element_name: str) -> AXLElement:
     return AXLElement(__get_element_by_name(z_client, element_name))
 
 
-# def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> list:
-#     def tags_in_tree(tree: dict, tags: list[str]) -> dict:
-#         picked_tree: dict = dict()
-#         for tag in tags:
-#             picked_tree[tag] = tree.get(tag, None)
-#             if picked_tree[tag] is None:
-#                 raise TagNotValid(
-#                     tag, get_return_tags(z_client, element_name), elem_name=element_name
-#                 )
-#         return picked_tree
-
-#     element_tree = AXLElement(__get_element_by_name(z_client, element_name))
-
-#     if element_tree.get("returnedTags", None) is None:
-#         raise WSDLException(f"Element '{element_name}' has no returnedTags sub-element")
-
-#     tags_dict = element_tree.return_tags()
-
-#     for tag in tags:
-#         if tags_dict.get(tag, None) not in (
-#             Nil,
-#             "",
-#         ):  # complex tag, replace tag list with dict
-#             return [tags_in_tree(tags_dict, tags)]
-#     else:
-#         return tags
-
-
+@cache
 def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> dict:
     tree = get_tree(z_client, element_name)
 
@@ -521,7 +412,7 @@ def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> dic
     return_tags = {}
     for tag in tags:
         # uuid guard
-        if tag == 'uuid':
+        if tag == "uuid":
             continue
         if (found := tag_tree.get(tag, None)) is not None:
             if found.children:
@@ -552,12 +443,6 @@ def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> dic
     return return_tags
 
 
-def validate_soap_arguments(z_client: Client, element_name: str, **kwargs) -> bool:
-    elem = __get_element_by_name(z_client, element_name)
-    tree = AXLElement(elem)
-    tree_required = tree.needed_only()
-
-
 def print_element_layout(
     z_client: Client, element_name: str, show_required=False, show_types=False
 ) -> None:
@@ -584,6 +469,7 @@ def print_return_tags_layout(
         r_tags.print_tree(show_types=show_types, show_required=show_required)
 
 
+@cache
 def validate_arguments(
     z_client: Client, element_name: str, child=None, **kwargs
 ) -> None:
