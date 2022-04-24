@@ -128,6 +128,15 @@ class AXLError(Exception):
         return self.start_msg + "\n\n" + tb + end
 
 
+class AXLTimeout(Exception):
+    def __init__(self, request: str, *args: object) -> None:
+        self.req = request
+        super().__init__(*args)
+
+    def __str__(self) -> str:
+        return f"The {self.req} request could not complete in the given time"
+
+
 class WSDLException(Exception):
     pass
 

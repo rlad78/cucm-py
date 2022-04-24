@@ -1,4 +1,5 @@
 import asyncio
+from functools import partial
 import cucm.axl.configs as cfg
 import cucm.configs as rootcfg
 from cucm.axl.helpers import *
@@ -21,6 +22,7 @@ import re
 from enum import Enum, unique
 from collections import defaultdict
 from copy import copy
+from itertools import chain
 
 # LOGGING SETTINGS
 logdir = rootcfg.LOG_DIR
@@ -304,6 +306,82 @@ class AsyncAXL:
         else:
             return ""
 
+    async def _generic_soap_list(
+        self,
+        element: str,
+        children: list[str] = None,
+        task_number: int = None,
+        *,
+        block_size: int = 1024,
+        repeat_tries: int = 0,
+        **kwargs,
+    ) -> list:
+        if task_number is not None:
+            this_task = task_number
+        else:
+            this_task = await checkout_task()
+        list_results = []
+
+        async def list_worker(index_queue: asyncio.Queue, worker_name: str) -> None:
+            while True:
+                log.debug(f"{worker_name} is waiting for a queue item...")
+                index = await index_queue.get()
+                log.debug(f"{worker_name} got {index=}")
+                results = await self._generic_soap_call(
+                    element,
+                    APICall.LIST,
+                    children,
+                    this_task,
+                    first=block_size,
+                    skip=index,
+                    **kwargs,
+                )
+                if results:
+                    log.debug(
+                        f"{worker_name} found {len(results)} results, adding queue task for index={index + (block_size * 3)}"
+                    )
+                    index_queue.put_nowait(index + (block_size * 3))
+                list_results.append(results)
+                index_queue.task_done()
+                log.debug(
+                    f"{worker_name} task done, there are {index_queue.qsize()} tasks currently in the queue"
+                )
+
+        q = asyncio.Queue()
+        q.put_nowait(0)
+        q.put_nowait(block_size)
+        q.put_nowait(block_size * 2)
+
+        try:
+            worker_tasks = [
+                asyncio.create_task(list_worker(q, f"Worker {i}")) for i in range(3)
+            ]
+            await asyncio.wait(
+                [q.join(), *worker_tasks], return_when=asyncio.FIRST_COMPLETED
+            )
+            for worker in worker_tasks:
+                if worker.done():
+                    raise worker.exception()
+                worker.cancel()
+            return list(chain.from_iterable(list_results))
+        except httpx.ReadTimeout:
+            for worker in worker_tasks:
+                worker.cancel()
+            if repeat_tries >= 3:
+                raise AXLTimeout(element) from None
+
+            log.warning(
+                f"{element} request was too large and timed out. Trying reduced chunk size {block_size} -> {int(block_size / 4)} ({3 - repeat_tries} attempts left)"
+            )
+            return await self._generic_soap_list(
+                element,
+                children,
+                this_task,
+                block_size=int(block_size / 4),
+                repeat_tries=(repeat_tries + 1),
+                **kwargs,
+            )
+
     async def _make_calls(self, method: str, kwargs_list: list[dict]) -> list[dict]:
         if (func := getattr(self, method, None)) is None:
             raise DumbProgrammerException(f"{method} is not an AsyncAXL method")
@@ -483,27 +561,41 @@ class AsyncAXL:
     @check_tags("listPhone")
     async def find_phones(
         self,
-        name_search: str = "",
-        desc_search: str = "",
-        css_search: str = "",
-        pool_search: str = "",
-        security_profile_search: str = "",
+        name_search: str = "%",
+        desc_search: str = "%",
+        css_search: str = "%",
+        pool_search: str = "%",
+        security_profile_search: str = "%",
         *,
         return_tags: list[str] = None,
     ) -> list[dict]:
-        args_dict = {
+        query = {
             "name": name_search,
             "description": desc_search,
             "callingSearchSpaceName": css_search,
             "devicePoolName": pool_search,
             "securityProfileName": security_profile_search,
         }
-        args_dict = {k: v for k, v in args_dict.items() if v}
-        if len(args_dict) == 0:
+        query = {k: v for k, v in query.items() if v and v != "%"}
+        if len(query) == 0:
             raise InvalidArguments("No search query supplied")
-        args_dict["returnedTags"] = return_tags
 
-        return await self._generic_soap_call("listPhone", APICall.LIST, **args_dict)
+        return await self._generic_soap_list(
+            "listPhone",
+            ["return", "phone"],
+            searchCriteria=query,
+            returnedTags=return_tags,
+        )
+
+    @serialize
+    @check_tags("listPhone")
+    async def list_phones(self, *, return_tags: list[str] = None) -> list[dict]:
+        return await self._generic_soap_list(
+            "listPhone",
+            ["return", "phone"],
+            searchCriteria={"name": "%"},
+            returnedTags=return_tags,
+        )
 
     @check_arguments("addPhone")
     async def add_phone(
@@ -556,6 +648,15 @@ class AsyncAXL:
             phone_template, name=name, description=description, product=model, **kwargs
         )
         return await self._generic_soap_add("addPhone", "phone", **template_data)
+
+    @check_arguments("updatePhone")
+    async def update_phone(
+        self,
+        name: str,
+        new_name: str = "",
+        description: str = "",
+    ) -> None:
+        pass  # TODO: figure out priorities for update arguments
 
     #########################
     # ==== PHONE LINES ==== #
