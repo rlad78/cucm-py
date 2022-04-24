@@ -1,4 +1,3 @@
-from functools import cache
 from typing import Union
 from zeep import Client
 from zeep.xsd.elements.element import Element
@@ -401,7 +400,6 @@ def get_tree(z_client: Client, element_name: str) -> AXLElement:
     return AXLElement(__get_element_by_name(z_client, element_name))
 
 
-@cache
 def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> dict:
     tree = get_tree(z_client, element_name)
 
@@ -469,7 +467,6 @@ def print_return_tags_layout(
         r_tags.print_tree(show_types=show_types, show_required=show_required)
 
 
-@cache
 def validate_arguments(
     z_client: Client, element_name: str, child=None, **kwargs
 ) -> None:
