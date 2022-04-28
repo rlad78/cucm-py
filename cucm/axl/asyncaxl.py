@@ -222,7 +222,7 @@ class AsyncAXL:
                     log.info(f"{current_task} Completed, but could not find item")
                     return {}
                 else:
-                    log.exception()
+                    log.exception(e)
                     raise
             elif action is APICall.LIST:
                 log.info(f"{current_task} Completed, but list empty")
