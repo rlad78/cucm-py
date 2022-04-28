@@ -548,11 +548,11 @@ class AsyncAXL:
     ) -> list[dict]:
         if names:
             return await self._make_calls(
-                "get_phone", [{"name": n, "returnedTags": return_tags} for n in names]
+                "get_phone", [{"name": n, "return_tags": return_tags} for n in names]
             )
         elif uuids:
             return await self._make_calls(
-                "get_phone", [{"uuid": u, "returnedTags": return_tags} for u in uuids]
+                "get_phone", [{"uuid": u, "return_tags": return_tags} for u in uuids]
             )
         else:
             raise InvalidArguments("Neither names nor uuids were supplied")
