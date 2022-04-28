@@ -137,6 +137,10 @@ class AXLTimeout(Exception):
         return f"The {self.req} request could not complete in the given time"
 
 
+class AXLThrottleTimeout(Exception):
+    pass
+
+
 class WSDLException(Exception):
     pass
 

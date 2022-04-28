@@ -62,9 +62,14 @@ class APICall(Enum):
     WIPE = "WIPE"
 
 
+# SYNC PRIMITIVES
 TASK_COUNTER = 0
 TASK_COUNT_LOCK = asyncio.Lock()
 PHONE_MANIP_LOCKS = defaultdict(asyncio.Lock)
+ANTI_THROTTLE_SEM_TOTAL = 20
+ANTI_THROTTLE_SEM = asyncio.Semaphore(ANTI_THROTTLE_SEM_TOTAL)
+ANTI_THROTTLE_TIMEOUT = 10.0
+ANTI_THROTTLE_ADJUST_LOCK = asyncio.Lock()
 
 
 class AsyncClientExt(AsyncClient):
@@ -213,23 +218,48 @@ class AsyncAXL:
         else:
             current_task = f"[{str(await checkout_task()).zfill(4)}]"
 
-        log.info(f"{current_task} Performing {action.value} for {kwargs}")
-        try:
-            results = await func(**kwargs)
-        except Fault as e:
-            if action is APICall.GET:
-                if "was not found" in e.message:
-                    log.info(f"{current_task} Completed, but could not find item")
-                    return {}
+        async with ANTI_THROTTLE_SEM:
+            log.info(f"{current_task} Performing {action.value} for {kwargs}")
+            try:
+                results = await func(**kwargs)
+            except Fault as e:
+                if "http.503" in str(e.detail):
+                    # try to lower the semaphore count to prevent
+                    # future throttling, then retry the SOAP call
+                    async with ANTI_THROTTLE_ADJUST_LOCK:  # only one adjust at a time
+                        try:
+                            await asyncio.wait_for(
+                                ANTI_THROTTLE_SEM.acquire(), ANTI_THROTTLE_TIMEOUT
+                            )
+                            global ANTI_THROTTLE_SEM_TOTAL
+                            ANTI_THROTTLE_SEM_TOTAL -= 1
+                        except asyncio.TimeoutError:
+                            log.critical(
+                                f"AXL resource throttling has exceeded built-in timeout of {ANTI_THROTTLE_TIMEOUT:.1f} sec"
+                            )
+                            raise AXLThrottleTimeout(
+                                f"AXL resource throttling has exceeded built-in timeout of {ANTI_THROTTLE_TIMEOUT:.1f} sec"
+                            ) from None
+
+                    log.debug(
+                        f"{current_task} ANTI_THROTTLE_SEM reduced to {ANTI_THROTTLE_SEM_TOTAL} due to 503 error!"
+                    )
+                    return await self._generic_soap_call(
+                        element, action, children, task_number, **kwargs
+                    )
+                elif action is APICall.GET:
+                    if "was not found" in e.message:
+                        log.info(f"{current_task} Completed, but could not find item")
+                        return {}
+                    else:
+                        log.exception(e)
+                        raise
+                elif action is APICall.LIST:
+                    log.info(f"{current_task} Completed, but list empty")
+                    return []
                 else:
                     log.exception(e)
                     raise
-            elif action is APICall.LIST:
-                log.info(f"{current_task} Completed, but list empty")
-                return []
-            else:
-                log.exception()
-                raise e
 
         try:
             for child in children:
@@ -356,6 +386,8 @@ class AsyncAXL:
             worker_tasks = [
                 asyncio.create_task(list_worker(q, f"Worker {i}")) for i in range(3)
             ]
+
+            # make sure queue completes before workers do (i.e. from an exception)
             await asyncio.wait(
                 [q.join(), *worker_tasks], return_when=asyncio.FIRST_COMPLETED
             )
@@ -382,13 +414,12 @@ class AsyncAXL:
                 **kwargs,
             )
 
-    async def _make_calls(self, method: str, kwargs_list: list[dict]) -> list[dict]:
+    async def _gather_calls(self, method: str, kwargs_list: list[dict]) -> list[dict]:
         if (func := getattr(self, method, None)) is None:
             raise DumbProgrammerException(f"{method} is not an AsyncAXL method")
 
         log.debug(f"Starting {len(kwargs_list)} {method} tasks...")
-        call_tasks = [asyncio.create_task(func(**kw)) for kw in kwargs_list]
-        results = await asyncio.gather(*call_tasks)
+        results = await asyncio.gather(*[func(**kw) for kw in kwargs_list])
         log.debug(
             f"Finished {len(kwargs_list)} {method} tasks, returned {len([x for x in results if x])} items"
         )
@@ -547,11 +578,11 @@ class AsyncAXL:
         return_tags: list[str] = None,
     ) -> list[dict]:
         if names:
-            return await self._make_calls(
+            return await self._gather_calls(
                 "get_phone", [{"name": n, "return_tags": return_tags} for n in names]
             )
         elif uuids:
-            return await self._make_calls(
+            return await self._gather_calls(
                 "get_phone", [{"uuid": u, "return_tags": return_tags} for u in uuids]
             )
         else:
@@ -698,11 +729,11 @@ class AsyncAXL:
             if (phone_name := device.get("name", None)) is None:
                 raise InvalidArguments(f"{phone_uuid=} does not lead to a valid phone")
 
-        sem = PHONE_MANIP_SEM[phone_name]
-        if sem.locked():
+        lock = PHONE_MANIP_LOCKS[phone_name]
+        if lock.locked():
             log.debug(f"Waiting on locked resource for phone '{phone_name}'")
 
-        async with sem:
+        async with lock:
             log.debug(f"Locking resources for phone '{phone_name}'...")
             # while we're looking for the phone, make sure the DN exists
             find_dn = asyncio.create_task(
@@ -838,7 +869,7 @@ class AsyncAXL:
         for args in args_list:
             args["returnedTags"] = return_tags
 
-        return await self._make_calls("get_directory_number", args_list)
+        return await self._gather_calls("get_directory_number", args_list)
 
     @serialize
     @check_tags("listLine")
