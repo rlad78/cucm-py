@@ -325,6 +325,42 @@ class AsyncAXL:
             element, action, children, task_number=task_number, **kwargs
         )
 
+    async def _generic_soap_get_many(
+        self,
+        element: str,
+        base_field: str,
+        base_list: list[str] = None,
+        uuid_list: list[str] = None,
+        children: list[str] = None,
+        **kwargs,
+    ) -> list[dict]:
+        if base_list is not None and uuid_list is None:
+            kwargs_list = [
+                {base_field: base_value, **kwargs} for base_value in base_list
+            ]
+        elif uuid_list is not None and base_list is None:
+            kwargs_list = [{"uuid": uuid_value, **kwargs} for uuid_value in uuid_list]
+        elif all(var is not None for var in (base_list, uuid_list)):
+            raise InvalidArguments(
+                f"Cannot accept lists for '{base_field}' and 'uuid' at the same time"
+            )
+        elif all(var is None for var in (base_list, uuid_list)):
+            raise InvalidArguments(f"No values supplied for '{base_field}' or 'uuid'")
+        else:
+            raise DumbProgrammerException(
+                "Case not accounted for in conditionals (soap_get_many, choose list)"
+            ) from None
+
+        task_number = await checkout_task()
+        return await asyncio.gather(
+            *[
+                self._generic_soap_call(
+                    element, APICall.GET, children, task_number, **kw
+                )
+                for kw in kwargs_list
+            ]
+        )
+
     async def _generic_soap_add(
         self, element: str, adding_element: str, task_number: int = None, **kwargs
     ) -> str:
@@ -579,16 +615,24 @@ class AsyncAXL:
         *,
         return_tags: list[str] = None,
     ) -> list[dict]:
-        if names:
-            return await self._gather_method_calls(
-                "get_phone", [{"name": n, "return_tags": return_tags} for n in names]
-            )
-        elif uuids:
-            return await self._gather_method_calls(
-                "get_phone", [{"uuid": u, "return_tags": return_tags} for u in uuids]
-            )
-        else:
-            raise InvalidArguments("Neither names nor uuids were supplied")
+        # if names:
+        #     return await self._gather_method_calls(
+        #         "get_phone", [{"name": n, "return_tags": return_tags} for n in names]
+        #     )
+        # elif uuids:
+        #     return await self._gather_method_calls(
+        #         "get_phone", [{"uuid": u, "return_tags": return_tags} for u in uuids]
+        #     )
+        # else:
+        #     raise InvalidArguments("Neither names nor uuids were supplied")
+        return await self._generic_soap_get_many(
+            "getPhone",
+            "name",
+            names,
+            uuids,
+            ["return", "phone"],
+            returnedTags=return_tags,
+        )
 
     @serialize
     @check_tags("listPhone")
@@ -927,6 +971,44 @@ class AsyncAXL:
             **kwargs,
         )
         return await self._generic_soap_add("addLine", "line", **template_data)
+
+    ###################
+    # ==== USERS ==== #
+    ###################
+
+    @serialize
+    @check_tags("getUser")
+    async def get_user(
+        self, user_id: str = "", uuid: str = "", *, return_tags: list[str] = None
+    ) -> dict:
+        return await self._generic_soap_with_uuid(
+            "getUser",
+            APICall.GET,
+            "userid",
+            ["return", "user"],
+            task_number=await checkout_task(),
+            userid=user_id,
+            uuid=uuid,
+            returnedTags=return_tags,
+        )
+
+    @serialize
+    @check_tags("getUser")
+    async def get_users(
+        self,
+        user_ids: list[str] = None,
+        uuids: list[str] = None,
+        *,
+        return_tags: list[str] = None,
+    ) -> list[dict]:
+        return await self._generic_soap_get_many(
+            "getUser",
+            "userid",
+            user_ids,
+            uuids,
+            ["return", "user"],
+            returnedTags=return_tags,
+        )
 
 
 async def checkout_task() -> int:
