@@ -1,5 +1,6 @@
 import asyncio
 from functools import partial
+from unicodedata import name
 import cucm.axl.configs as cfg
 import cucm.configs as rootcfg
 from cucm.axl.helpers import *
@@ -20,7 +21,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import re
 from enum import Enum, unique
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from copy import copy
 from itertools import chain
 
@@ -62,10 +63,13 @@ class APICall(Enum):
     WIPE = "WIPE"
 
 
+CheckResults = namedtuple("CheckResults", ("found", "missing"))
+
 # SYNC PRIMITIVES
 TASK_COUNTER = 0
 TASK_COUNT_LOCK = asyncio.Lock()
 PHONE_MANIP_LOCKS = defaultdict(asyncio.Lock)
+USER_MANIP_LOCKS = defaultdict(asyncio.Lock)
 ANTI_THROTTLE_SEM_TOTAL = 20
 ANTI_THROTTLE_SEM = asyncio.Semaphore(ANTI_THROTTLE_SEM_TOTAL)
 ANTI_THROTTLE_TIMEOUT = 10.0
@@ -450,6 +454,38 @@ class AsyncAXL:
                 **kwargs,
             )
 
+    async def _generic_soap_update(
+        self,
+        element: str,
+        base_field: str,
+        base_value: str = None,
+        uuid: str = None,
+        task_number: int = None,
+        **kwargs,
+    ) -> bool:
+        if uuid:
+            kw_group = {base_field: base_value}
+        elif base_value:
+            kw_group = {"uuid": uuid}
+        else:
+            raise InvalidArguments(f"A '{base_field}' or 'uuid' value must be given")
+
+        kw_group.update(
+            {k: v for k, v in kwargs.items() if (v != "" and v is not None)}
+        )
+
+        try:
+            result = await self._generic_soap_call(
+                element, APICall.UPDATE, None, task_number, **kw_group
+            )
+        except Fault as e:
+            raise AXLFault(e) from None
+
+        if not result:
+            return False
+        else:
+            return True
+
     async def _gather_method_calls(
         self, method: str, kwargs_list: list[dict]
     ) -> list[dict]:
@@ -462,6 +498,63 @@ class AsyncAXL:
             f"Finished {len(kwargs_list)} {method} tasks, returned {len([x for x in results if x])} items"
         )
         return results
+
+    async def _check_exists(
+        self,
+        element: str,
+        field: Union[str, list[str]],
+        field_value: Union[str, list[str]],
+        task_number: int = None,
+        **kwargs,
+    ) -> CheckResults:
+        if type(field) == str:
+            kw_group = {field: field_value}
+        elif isinstance(type(field), Sequence):
+            kw_group = {f[0]: f[1] for f in zip(field, field_value)}
+        else:
+            raise DumbProgrammerException("Bad types for field or field_value")
+
+        # try:
+        results = await self._generic_soap_call(
+            element,
+            APICall.GET,
+            task_number=task_number,
+            **kw_group,
+            returnedTags={},
+            **kwargs,
+        )
+        # except Fault:
+        #     return {False: field_value}
+
+        if not results:
+            return CheckResults(False, field_value)
+        else:
+            return CheckResults(True, field_value)
+
+    async def _check_exists_many(
+        self,
+        element: str,
+        field: Union[str, list[str]],
+        field_values: Union[list[str], list[list[str]]],
+        task_number: int = None,
+        **kwargs,
+    ) -> CheckResults:
+        check_tasks = {
+            asyncio.create_task(
+                self._check_exists(element, field, fv, task_number, **kwargs)
+            ): fv
+            for fv in field_values
+        }
+        await asyncio.wait(check_tasks)
+
+        result = CheckResults(True, [])
+
+        for task in check_tasks:
+            if task.exception() is not None or not task.result():
+                result.found = False
+                result.missing.append(check_tasks[task])
+
+        return result
 
     def __extract_template(self, element_name: str, template: dict, child="") -> dict:
         """Removes all unnecessary values from a device/line/etc template, like None and "" values. Keeps any values that are required by the given element_name, regardless of what the values are.
@@ -972,6 +1065,37 @@ class AsyncAXL:
         )
         return await self._generic_soap_add("addLine", "line", **template_data)
 
+    #############################
+    # ==== DEVICE PROFILES ==== #
+    #############################
+
+    @serialize
+    @check_tags("getDeviceProfile")
+    async def get_device_profile(
+        self, name: str = "", uuid: str = "", *, return_tags: list[str] = None
+    ) -> dict:
+        return await self._generic_soap_with_uuid(
+            "getDeviceProfile",
+            APICall.GET,
+            "name",
+            ["return", "deviceProfile"],
+            uuid=uuid,
+            name=name,
+            returnedTags=return_tags,
+        )
+
+    @check_arguments("addDeviceProfile")
+    async def add_device_profile(
+        self,
+        name: str,
+        button_template: str,
+        description: str = "",
+        model: str = "Cisco 8845",
+        protocol: str = "SIP",
+        services: list[dict] = None,
+    ) -> None:
+        pass
+
     ###################
     # ==== USERS ==== #
     ###################
@@ -1009,6 +1133,148 @@ class AsyncAXL:
             ["return", "user"],
             returnedTags=return_tags,
         )
+
+    @check_arguments("updateUser")
+    async def update_user(
+        self,
+        user_id: str = "",
+        uuid: str = "",
+        new_user_id: str = "",
+        name: tuple[str, str, str] = None,
+        telephone_number: str = "",
+        mobile_number: str = "",
+        home_number: str = "",
+        title: str = "",
+        password: str = "",
+        pin: str = "",
+        department: str = "",
+        manager: str = "",
+        primary_ext: tuple[str, str] = None,
+        default_profile: str = "",
+        subscribe_css: str = "",
+        enable_cti: bool = None,
+        enable_mobility: bool = None,
+        enable_mobile_voice: bool = None,
+        enable_emcc: bool = None,
+        enable_home_cluster: bool = None,
+        enable_im_presence: bool = None,
+        enable_meeting_presence: bool = None,
+        enable_host_conf_now: bool = None,
+        **kwargs,
+    ) -> bool:
+        kw_map = {
+            "newUserid": new_user_id,
+            "telephoneNumber": telephone_number,
+            "mobileNumber": mobile_number,
+            "homeNumber": home_number,
+            "title": title,
+            "password": password,
+            "pin": pin,
+            "department": department,
+            "manager": manager,
+            "defaultProfile": default_profile,
+            "subscribeCallingSearchSpaceName": subscribe_css,
+            "enableCti": enable_cti,
+            "enableMobility": enable_mobility,
+            "enableMobileVoiceAccess": enable_mobile_voice,
+            "enableEmcc": enable_emcc,
+            "homeCluster": enable_home_cluster,
+            "imAndPresenceEnable": enable_im_presence,
+            "calendarPresence": enable_meeting_presence,
+            "enableUserToHostConferenceNow": enable_host_conf_now,
+            **kwargs,
+        }
+        if name is not None:
+            kw_map.update(
+                {
+                    "firstName": name[0],
+                    "middleName": name[1],
+                    "lastName": name[2],
+                }
+            )
+        if primary_ext is not None:
+            kw_map.update(
+                {
+                    "primaryExtension": {
+                        "pattern": primary_ext[0],
+                        "routePartitionName": primary_ext[1],
+                    },
+                }
+            )
+
+        return await self._generic_soap_update(
+            "updateUser", "userid", user_id, uuid, **kw_map
+        )
+
+    async def add_user_associated_device(
+        self,
+        user_id: str = "",
+        uuid: str = "",
+        device: Union[str, Sequence] = None,
+    ) -> None:
+        if user_id:
+            query = {"userid": user_id}
+        elif uuid:
+            query = {"uuid": uuid}
+        else:
+            raise InvalidArguments("A 'user_id' or 'uuid' must be provided")
+
+        # in the background, check if device(s) exists
+        if type(device) == str:
+            check_device = asyncio.create_task(
+                self._check_exists("getPhone", "name", device)
+            )
+            new_devices = [device]
+        elif isinstance(type(device), Sequence):
+            check_device = asyncio.create_task(
+                self._check_exists_many("getPhone", "name", device)
+            )
+            new_devices = [d for d in device]
+        else:
+            raise InvalidArguments(
+                f"'device' must be a str or sequence (list, tuple, etc), not {type(device)}"
+            )
+
+        # make sure current user exists
+        user_result = await self.get_user(**query, return_tags=["userid"])
+        if not user_result:
+            raise InvalidArguments(f"{query} could not be found")
+
+        this_user_id = user_result["userid"]
+
+        await check_device
+        if (exc := check_device.exception()) is not None:
+            raise exc
+        if not (dev_result := check_device.result()).found:
+            raise InvalidArguments(f"Could not find device '{dev_result.missing}'")
+
+        # prevent user from being edited during update
+        async with USER_MANIP_LOCKS[this_user_id]:
+            user_devices = await self.get_user(
+                this_user_id, return_tags=["associatedDevices"]
+            )["associatedDevices"]
+
+            if user_devices is None:
+                current_devices = []
+            else:
+                current_devices = user_devices["device"]
+
+            update_devices = new_devices + current_devices
+
+            await self._generic_soap_call(
+                "updateUser",
+                APICall.UPDATE,
+                userid=this_user_id,
+                associatedDevices={"device": update_devices},
+            )
+
+    async def add_user_cti_profile(
+        self,
+        user_id: str = "",
+        uuid: str = "",
+        profile: Union[str, list[str]] = None,
+    ) -> None:
+        pass
 
 
 async def checkout_task() -> int:
