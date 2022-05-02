@@ -414,7 +414,9 @@ class AsyncAXL:
                 **kwargs,
             )
 
-    async def _gather_calls(self, method: str, kwargs_list: list[dict]) -> list[dict]:
+    async def _gather_method_calls(
+        self, method: str, kwargs_list: list[dict]
+    ) -> list[dict]:
         if (func := getattr(self, method, None)) is None:
             raise DumbProgrammerException(f"{method} is not an AsyncAXL method")
 
@@ -578,11 +580,11 @@ class AsyncAXL:
         return_tags: list[str] = None,
     ) -> list[dict]:
         if names:
-            return await self._gather_calls(
+            return await self._gather_method_calls(
                 "get_phone", [{"name": n, "return_tags": return_tags} for n in names]
             )
         elif uuids:
-            return await self._gather_calls(
+            return await self._gather_method_calls(
                 "get_phone", [{"uuid": u, "return_tags": return_tags} for u in uuids]
             )
         else:
@@ -869,7 +871,7 @@ class AsyncAXL:
         for args in args_list:
             args["returnedTags"] = return_tags
 
-        return await self._gather_calls("get_directory_number", args_list)
+        return await self._gather_method_calls("get_directory_number", args_list)
 
     @serialize
     @check_tags("listLine")
