@@ -283,3 +283,6 @@ $RECYCLE.BIN/
 # Poetry
 *.lock
 *.log
+
+# project specific
+env.py
