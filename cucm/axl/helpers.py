@@ -16,6 +16,7 @@ import asyncio
 
 TCallable = TypeVar("TCallable", bound=Callable)
 
+
 def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
     def check_value(d: dict) -> dict:
         d_copy = d.copy()
@@ -31,12 +32,28 @@ def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
                         value[i] = check_value(d)
         return d_copy
 
+    # ctiid has no use, remove always if there
+    # ? not entirely sure about this, will find out later
+    data.pop("ctiid", None)
+
     if tags is None:
-        return check_value(data)
+        checked_data = check_value(data)
+        if not cfg.AUTO_INCLUDE_UUIDS:
+            checked_data.pop("uuid", None)
+        return checked_data
 
     working_data = deepcopy(data)
     for tag, value in data.items():
-        if tag not in tags and len(tags) > 0:
+        if tag == "uuid":
+            # * UUIDs are not included in wsdl descriptors, so they won't
+            # * show up automatically in 'tags'. We will always keep them in
+            # * unless AUTO_INCLUDE_UUIDS has been turned off. Then, we will
+            # * only keep UUIDs if 'uuid' is specified in return_tags
+            if cfg.AUTO_INCLUDE_UUIDS:
+                continue
+            elif "uuid" not in tags:
+                working_data.pop("uuid", None)
+        elif tag not in tags and len(tags) > 0:
             working_data.pop(tag, None)
         elif type(value) == dict:
             if "_value_1" in value:
@@ -48,37 +65,6 @@ def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
                 if type(d) == dict:
                     value[i] = check_value(d)
     return working_data
-
-
-# def serialize(func: TCallable) -> TCallable:
-#     @wraps(func)
-#     def wrapper(*args, **kwargs):
-#         r_value = func(*args, **kwargs)
-#         if cfg.DISABLE_SERIALIZER:
-#             return r_value
-
-#         if r_value is None:
-#             return dict()
-#         elif issubclass(type(r_value), Fault):
-#             raise AXLFault(r_value)
-#         elif (
-#             "return_tags" not in kwargs
-#             and (
-#                 tags_param := inspect.signature(func).parameters.get(
-#                     "return_tags", None
-#                 )
-#             )
-#             is not None
-#         ):
-#             r_dict = serialize_object(r_value, dict)
-#             return _tag_serialize_filter(tags_param.default, r_dict)
-#         elif "return_tags" in kwargs:
-#             r_dict = serialize_object(r_value, dict)
-#             return _tag_serialize_filter(kwargs["return_tags"], r_dict)
-#         else:
-#             return serialize_object(r_value, dict)
-
-#     return wrapper
 
 
 def serialize(func: TCallable) -> TCallable:
@@ -129,8 +115,11 @@ def serialize(func: TCallable) -> TCallable:
                 for element in r_value
             ]
         else:
-            return [_tag_serialize_filter(None, serialize_object(element, dict)) for element in r_value]
-             
+            return [
+                _tag_serialize_filter(None, serialize_object(element, dict))
+                for element in r_value
+            ]
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         r_value = func(*args, **kwargs)
@@ -155,41 +144,6 @@ def serialize(func: TCallable) -> TCallable:
         return async_wrapper
     else:
         return wrapper
-
-
-# def serialize_list(func: TCallable) -> TCallable:
-#     @wraps(func)
-#     def wrapper(*args, **kwargs):
-#         r_value = func(*args, **kwargs)
-#         if cfg.DISABLE_SERIALIZER:
-#             return r_value
-
-#         if type(r_value) != list:
-#             return r_value
-#         elif (
-#             "return_tags" not in kwargs
-#             and (
-#                 tags_param := inspect.signature(func).parameters.get(
-#                     "return_tags", None
-#                 )
-#             )
-#             is not None
-#         ):
-#             return [
-#                 _tag_serialize_filter(
-#                     tags_param.default, serialize_object(element, dict)
-#                 )
-#                 for element in r_value
-#             ]
-#         elif "return_tags" in kwargs:
-#             return [
-#                 _tag_serialize_filter(
-#                     kwargs["return_tags"], serialize_object(element, dict)
-#                 )
-#                 for element in r_value
-#             ]
-
-#     return wrapper
 
 
 def check_tags(element_name: str):
@@ -234,18 +188,18 @@ def check_tags(element_name: str):
                         element_name=element_name,
                         tags=kwargs["return_tags"],
                     )
-        
+
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
-            if cfg.DISABLE_CHECK_ARGS:
-                return await func(*args, **kwargs)
+            # if cfg.DISABLE_CHECK_ARGS:
+            #     return await func(*args, **kwargs)
             processing(func, args, kwargs)
             return await func(*args, **kwargs)
-        
+
         @wraps(func)
         def wrapper(*args, **kwargs):
-            if cfg.DISABLE_CHECK_TAGS:
-                return func(*args, **kwargs)
+            # if cfg.DISABLE_CHECK_TAGS:
+            #     return func(*args, **kwargs)
             processing(func, args, kwargs)
             return func(*args, **kwargs)
 
