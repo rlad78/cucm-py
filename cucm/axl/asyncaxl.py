@@ -355,6 +355,9 @@ class AsyncAXL:
                 "Case not accounted for in conditionals (soap_get_many, choose list)"
             ) from None
 
+        if len(kwargs_list) == 0:
+            raise InvalidArguments(f"Empty list supplied for '{base_field}' or 'uuid'")
+
         task_number = await checkout_task()
         return await asyncio.gather(
             *[
@@ -938,77 +941,61 @@ class AsyncAXL:
     @check_tags("getLine")
     async def get_directory_number(
         self,
-        pattern: str = "",
-        route_partition: str = "",
+        dn: tuple[str, str] = None,
         uuid: str = "",
         *,
         return_tags: list[str] = None,
     ) -> dict:
-        """Attempts to retrieve the directory number with the given 'pattern' and 'route_partition', or with the given 'uuid'. Returns an empty dict if the DN isn't found.
-
-        Args:
-            pattern (str, optional): The pattern (usually phone number) of the DN. Defaults to "".
-            route_partition (str, optional): The Route Partition to search in. Defaults to "".
-            uuid (str, optional): The DN's UUID. Can be found via other AXL calls. Defaults to "".
-            return_tags (list[str], optional): Tags to choose what data will be returned. Leave as None to return all tags. Defaults to None.
-
-        Raises:
-            InvalidArguments: When neither pattern and route_partition, nor uuid are supplied.
-
-        Returns:
-            dict: DN data, empty if DN isn't found
-        """
-        args_pack = {"returnedTags": return_tags}
-        if pattern and route_partition:
-            args_pack.update(
-                {
-                    "pattern": pattern,
-                    "routePartitionName": route_partition,
-                }
-            )
-        elif uuid:
-            args_pack.update(
-                {
-                    "uuid": uuid,
-                }
-            )
+        kw_group = {}
+        if dn is None and uuid:
+            kw_group["uuid"] = uuid
+        elif type(dn) == tuple and len(dn) == 2:
+            kw_group["pattern"] = dn[0]
+            kw_group["routePartitionName"] = dn[1]
         else:
             raise InvalidArguments(
-                "Both pattern and route_partition need valid argument values"
+                "get_directory_number() must either receive a 'dn' tuple of (pattern, route partition) or a 'uuid'. "
+                + "If you don't know the route partition of the DN you are looking for, try using find_directory_numbers()"
             )
 
         return await self._generic_soap_call(
             "getLine",
             APICall.GET,
             ["return", "line"],
-            **args_pack,
+            **kw_group,
+            returnedTags=return_tags,
         )
 
     @serialize
     @check_tags("getLine")
     async def get_directory_numbers(
         self,
-        dn_list: list[tuple[str, str]] = None,
+        dn_list: Sequence[tuple[str, str]] = None,
         uuids: list[str] = None,
         *,
         return_tags: list[str] = None,
     ) -> list[dict]:
-        if dn_list:
+        coro_list = []
+        if dn_list is not None:
             try:
-                args_list = [
-                    {"pattern": dn[0], "route_partition": dn[1]} for dn in dn_list
+                coro_list += [
+                    self.get_directory_number(dn=dn, return_tags=return_tags)
+                    for dn in dn_list
                 ]
-            except (TypeError, KeyError):
+            except TypeError:
                 raise InvalidArguments(
-                    "dn_list must be tuple pairs of ('pattern', 'route_partition')"
-                )
-        elif uuids:
-            args_list = [{"uuid": u} for u in uuids]
+                    "'dn_list' needs to be a sequence of tuples"
+                ) from None
+        if uuids is not None:
+            try:
+                coro_list += [
+                    self.get_directory_number(uuid=uuid, return_tags=return_tags)
+                    for uuid in uuids
+                ]
+            except TypeError:
+                raise InvalidArguments("'uuids' needs to be a list") from None
 
-        for args in args_list:
-            args["returnedTags"] = return_tags
-
-        return await self._gather_method_calls("get_directory_number", args_list)
+        return await asyncio.gather(*coro_list)
 
     @serialize
     @check_tags("listLine")
@@ -1029,10 +1016,14 @@ class AsyncAXL:
 
         if not args_pack:
             raise InvalidArguments("No search query supplied")
-        args_pack["returnedTags"] = return_tags
+        # args_pack["returnedTags"] = return_tags
 
         return await self._generic_soap_call(
-            "listLine", APICall.LIST, ["return", "line"], **args_pack
+            "listLine",
+            APICall.LIST,
+            ["return", "line"],
+            searchCriteria=args_pack,
+            returnedTags=return_tags,
         )
 
     @check_arguments("addLine")
