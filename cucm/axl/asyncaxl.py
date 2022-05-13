@@ -105,33 +105,19 @@ class AsyncAXL:
         username: str,
         password: str,
         server: str,
-        port: str = "8443",
+        port="8443",
         *,
         version: str = None,
     ) -> None:
         """Connect to your UCM's AXL server.
 
-        Args:
-            username (str): A user with AXL permissions
-            password (str): The password of the user
-            server (str): The base URL of your UCM server, no 'http://' or 'https://' needed
-            port (str, optional): The port at which UCM can be accessed. Defaults to "8443".
-
-        Raises:
-            URLInvalidError: An invalid URL for 'server' was provided
-            UCMInvalidError: The 'server' address does not point to a UCM server
-            UCMConnectionFailure: The connection to 'server' timed out or could not be completed
-            UCMNotFoundError: The 'server' URL could not be resolved
-            ConnectionError: An unknown error is preventing a connection to the UCM server
-            UDSConnectionError: Cannot connect to the UCM's UDS service. If UDS is not active, please supply your UCM version e.g. 'version=11.5'
-            UDSParseError: Could not parse the UCM version number from UDS. Please contact the maintainer of this project if you get this exception
-            UCMVersionError: The UCM version is either invalid or unsupported
-            UCMVersionInvalid: An unsupported UCV version is detected
-            AXLInvalidCredentials:
-            AXLConnectionFailure:
-            AXLNotFoundError:
-            AXLException: An unknown error is preventing a connection to the AXL server
+        :param username: A user with AXL permissions
+        :param password: Password for the given user
+        :param server: Base URL for your UCM server (i.e. 'ucm.company.com')
+        :param port: Port on the server where UCM can be accessed, defaults to "8443"
+        :param version: Optional, use only when there is an issue determining your UCM version, defaults to None
         """
+        # * server verification
         log.info(
             f"Attempting to verify {server} on port {port} is a valid UCM server..."
         )
@@ -149,6 +135,7 @@ class AsyncAXL:
             log.error(f"Could not connect to {server}, unknown error occured")
             raise ConnectionError()
 
+        # * supported version check
         if version is not None:
             if (match := re.search(r"^(\d{1,2}(?:\.\d{1})?)", version)) is None:
                 raise InvalidArguments(f"{version=} is not a valid UCM version")
@@ -169,12 +156,14 @@ class AsyncAXL:
                 raise
             log.debug(f"Found UCM version: {cucm_version}")
 
+        # * load schema
         wsdl_path = cfg.AXL_DIR / "schema" / cucm_version / "AXLAPI.wsdl"
         log.debug(f"WSDL Path: {wsdl_path}")
         if not wsdl_path.parent.is_dir():
             log.critical(f"A schema for CUCM {cucm_version} is not available")
             raise UCMVersionInvalid(cucm_version)
 
+        # * validate permissions
         log.info(f"Validating AXL credentials...")
         try:
             axl_is_valid = validate_axl_auth(server, username, password, port)
@@ -185,6 +174,7 @@ class AsyncAXL:
             log.error("Could not connect to the AXL API for an unknown reason")
             raise AXLException()
 
+        # * create zeep client
         httpx_client = httpx.AsyncClient(auth=(username, password))
         settings = Settings(
             strict=False, xml_huge_tree=True, xsd_ignore_sequence_order=True
@@ -212,6 +202,16 @@ class AsyncAXL:
         task_number: int = None,
         **kwargs,
     ) -> Union[object, dict, list]:
+        """Performs a SOAP call to the given `element`. Keeps track of current async calls
+         and holds back calls in queue in order to prevent overwhelming AXL.
+
+        :param element: SOAP element to be called
+        :param action: Type of action to be performed (usually the prefix of `element`)
+        :param children: Children of expected response that drill down to the actual data, defaults to None
+        :param task_number: Override the logged task number, useful for batch operations, defaults to None
+        :param kwargs: Fields added to the SOAP call
+        :return: The Zeep object(s), or an empty list/dict depending on the type of `action`
+        """
         if (func := getattr(self.aclient, element, None)) is None:
             raise DumbProgrammerException(f"{element} is not an AXL element")
         if children is None:
@@ -294,22 +294,16 @@ class AsyncAXL:
         task_number: int = None,
         **kwargs,
     ):
-        """Same as _generic_soap_call, but looks for 'uuid' and the value of 'base_field' in the supplied kwargs. If a UUID exists, it will use this value in the SOAP call over the 'base_field' value.
+        """Same as `_generic_soap_call`, but looks for 'uuid' and the value of 'base_field' in the supplied kwargs.
+         If a UUID exists, it will use this value in the SOAP call over the 'base_field' value.
 
-        Args:
-            element (str): Name of the element being used for the call i.e. getPhone
-            action (APICall): Type of call being made (usually the prefix of the element)
-            base_field (str): Key used in kwargs as the primary identifier (i.e. 'name', 'mac', etc.)
-            children (list[str], optional): Keys of the returned nested object that lead to the desired information. Defaults to None.
-
-        Raises:
-            DumbProgrammerException: When 'base_field' doesn't exist in kwargs
-            InvalidArguments: When the values for 'base_field' and 'uuid' are both empty
-
-        Returns:
-            zeep.object: When valid data is found (@serialize will turn this into a dict)
-            dict: Empty dict when GET call is successful but no data is found
-            list: Empty list when LIST call is successful but no items are returned
+        :param element: SOAP element to be called
+        :param action: Type of action to be performed (usually the prefix of `element`)
+        :param base_field: The field that will be used if 'uuid' is not found
+        :param children: Children of expected response that drill down to the actual data, defaults to None
+        :param task_number: Override the logged task number, useful for batch operations, defaults to None
+        :param kwargs: Fields added to the SOAP call
+        :return: The Zeep object(s), or an empty list/dict depending on the type of `action`
         """
         if base_field not in kwargs.keys() or "uuid" not in kwargs.keys():
             raise DumbProgrammerException(
@@ -338,6 +332,17 @@ class AsyncAXL:
         children: list[str] = None,
         **kwargs,
     ) -> list[dict]:
+        """Runs multiple `__generic_soap_with_uuid` requests concurrently with the given `base_field` or `uuid`
+         values. The `kwargs` are applied to all SOAP calls.
+
+        :param element: SOAP element to be called
+        :param base_field: The field that will be used in the SOAP request for all items in `base_list`
+        :param base_list: 'base_field' items used to generate requests, defaults to None
+        :param uuid_list: 'uuid' items used to generate requests, defaults to None
+        :param children: Children of expected response that drill down to the actual data, defaults to None
+        :param kwargs: Fields added to ALL the SOAP requests
+        :return: The Zeep objects, or an empty list
+        """
         if base_list is not None and uuid_list is None:
             kwargs_list = [
                 {base_field: base_value, **kwargs} for base_value in base_list
@@ -680,18 +685,8 @@ class AsyncAXL:
     @serialize
     @check_tags("getPhone")
     async def get_phone(
-        self, name: str = "", uuid: str = "", *, return_tags: list[str] = None
+        self, name="", uuid="", *, return_tags: list[str] = None
     ) -> dict:
-        """Attemps to retrieve the phone device with the given 'name' or 'uuid'. Returns an empty dict if the device is not found.
-
-        Args:
-            name (str, optional): Name of the device, including the prefix (SEP, AN, etc). Defaults to "".
-            uuid (str, optional): UUID of the device. Can be found via other AXL calls. Defaults to "".
-            return_tags (list[str], optional): Tags to choose what data will be returned. Leave as None to return all tags. Defaults to None.
-
-        Returns:
-            dict: Phone data, empty if phone isn't found.
-        """
         return await self._generic_soap_with_uuid(
             "getPhone",
             APICall.GET,
@@ -711,16 +706,6 @@ class AsyncAXL:
         *,
         return_tags: list[str] = None,
     ) -> list[dict]:
-        # if names:
-        #     return await self._gather_method_calls(
-        #         "get_phone", [{"name": n, "return_tags": return_tags} for n in names]
-        #     )
-        # elif uuids:
-        #     return await self._gather_method_calls(
-        #         "get_phone", [{"uuid": u, "return_tags": return_tags} for u in uuids]
-        #     )
-        # else:
-        #     raise InvalidArguments("Neither names nor uuids were supplied")
         return await self._generic_soap_get_many(
             "getPhone",
             "name",
@@ -734,11 +719,11 @@ class AsyncAXL:
     @check_tags("listPhone")
     async def find_phones(
         self,
-        name_search: str = "%",
-        desc_search: str = "%",
-        css_search: str = "%",
-        pool_search: str = "%",
-        security_profile_search: str = "%",
+        name_search="%",
+        desc_search="%",
+        css_search="%",
+        pool_search="%",
+        security_profile_search="%",
         *,
         return_tags: list[str] = None,
     ) -> list[dict]:
@@ -826,8 +811,18 @@ class AsyncAXL:
     async def update_phone(
         self,
         name: str,
-        new_name: str = "",
-        description: str = "",
+        new_name="",
+        description="",
+        css="",
+        device_pool="",
+        button_template="",
+        common_phone_profile="",
+        location="",
+        use_trusted_relay_point: Union[str, bool] = "",
+        built_in_bridge="",
+        packet_capture_mode="",
+        mobility_mode="",
+        **kwargs,
     ) -> None:
         pass  # TODO: figure out priorities for update arguments
 
@@ -836,7 +831,7 @@ class AsyncAXL:
     #########################
 
     @serialize
-    async def get_phone_lines(self, name: str = "", uuid: str = "") -> list[dict]:
+    async def get_phone_lines(self, name="", uuid="") -> list[dict]:
         tags = fix_return_tags(self.zeep, "getPhone", ["lines"])
         result = await self._generic_soap_with_uuid(
             "getPhone",
@@ -856,8 +851,8 @@ class AsyncAXL:
         self,
         pattern: str,
         route_partition: str,
-        phone_name: str = "",
-        phone_uuid: str = "",
+        phone_name="",
+        phone_uuid="",
         *,
         line_index: int = -1,
     ) -> None:
@@ -942,7 +937,7 @@ class AsyncAXL:
     async def get_directory_number(
         self,
         dn: tuple[str, str] = None,
-        uuid: str = "",
+        uuid="",
         *,
         return_tags: list[str] = None,
     ) -> dict:
@@ -1001,9 +996,9 @@ class AsyncAXL:
     @check_tags("listLine")
     async def find_directory_numbers(
         self,
-        pattern_search: str = "",
-        route_partition_search: str = "",
-        desc_search: str = "",
+        pattern_search="",
+        route_partition_search="",
+        desc_search="",
         *,
         return_tags: list[str] = None,
     ) -> list[dict]:
@@ -1063,7 +1058,7 @@ class AsyncAXL:
     @serialize
     @check_tags("getDeviceProfile")
     async def get_device_profile(
-        self, name: str = "", uuid: str = "", *, return_tags: list[str] = None
+        self, name="", uuid="", *, return_tags: list[str] = None
     ) -> dict:
         return await self._generic_soap_with_uuid(
             "getDeviceProfile",
@@ -1080,9 +1075,9 @@ class AsyncAXL:
         self,
         name: str,
         button_template: str,
-        description: str = "",
-        model: str = "Cisco 8845",
-        protocol: str = "SIP",
+        description="",
+        model="Cisco 8845",
+        protocol="SIP",
         services: list[dict] = None,
     ) -> None:
         pass
@@ -1094,7 +1089,7 @@ class AsyncAXL:
     @serialize
     @check_tags("getUser")
     async def get_user(
-        self, user_id: str = "", uuid: str = "", *, return_tags: list[str] = None
+        self, user_id="", uuid="", *, return_tags: list[str] = None
     ) -> dict:
         return await self._generic_soap_with_uuid(
             "getUser",
@@ -1128,21 +1123,21 @@ class AsyncAXL:
     @check_arguments("updateUser")
     async def update_user(
         self,
-        user_id: str = "",
-        uuid: str = "",
-        new_user_id: str = "",
+        user_id="",
+        uuid="",
+        new_user_id="",
         name: tuple[str, str, str] = None,
-        telephone_number: str = "",
-        mobile_number: str = "",
-        home_number: str = "",
-        title: str = "",
-        password: str = "",
-        pin: str = "",
-        department: str = "",
-        manager: str = "",
+        telephone_number="",
+        mobile_number="",
+        home_number="",
+        title="",
+        password="",
+        pin="",
+        department="",
+        manager="",
         primary_ext: tuple[str, str] = None,
-        default_profile: str = "",
-        subscribe_css: str = "",
+        default_profile="",
+        subscribe_css="",
         enable_cti: bool = None,
         enable_mobility: bool = None,
         enable_mobile_voice: bool = None,
@@ -1199,8 +1194,8 @@ class AsyncAXL:
 
     async def add_user_associated_device(
         self,
-        user_id: str = "",
-        uuid: str = "",
+        user_id="",
+        uuid="",
         device: Union[str, Sequence] = None,
     ) -> None:
         if user_id:
@@ -1261,8 +1256,8 @@ class AsyncAXL:
 
     async def add_user_cti_profile(
         self,
-        user_id: str = "",
-        uuid: str = "",
+        user_id="",
+        uuid="",
         profile: Union[str, list[str]] = None,
     ) -> None:
         pass
