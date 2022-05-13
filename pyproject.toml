@@ -14,7 +14,7 @@ zeep = {extras = ["async"], version = "^4.1.0"}
 tldextract = "^3.1.2"
 validators = "^0.18.2"
 beautifulsoup4 = "^4.10.0"
-keyring = "^23.2.1"
+keyring = ">= 23.5.0"
 stdiomask = "^0.0.6"
 termcolor = "^1.1.0"
 tqdm = "^4.62.3"
