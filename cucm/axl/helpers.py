@@ -18,6 +18,13 @@ TCallable = TypeVar("TCallable", bound=Callable)
 
 
 def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
+    """Filters out data that is not wanted by `tags` and cleans up annoyances like '_value_1' keys
+
+    :param tags: Tags wanted in the result data
+    :param data: AXL data in serialized form
+    :return: Cleaned data with unwanted tags removed
+    """
+
     def check_value(d: dict) -> dict:
         d_copy = d.copy()
         for tag, value in d_copy.items():
@@ -32,7 +39,7 @@ def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
                         value[i] = check_value(d)
         return d_copy
 
-    # ctiid has no use, remove always if there
+    # ctiid may not have use, remove if there
     # ? not entirely sure about this, will find out later
     data.pop("ctiid", None)
 
@@ -65,6 +72,11 @@ def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
                 if type(d) == dict:
                     value[i] = check_value(d)
     return working_data
+
+
+"""Decorator that serializes Zeep objects into dicts. Can handle both Zeep and list[Zeep] types.
+If the child Callable has a `return_tags` kwarg, this decorator will filter out any unwanted tags.
+"""
 
 
 def serialize(func: TCallable) -> TCallable:
@@ -146,6 +158,16 @@ def serialize(func: TCallable) -> TCallable:
         return wrapper
 
 
+"""Decorator that will process a child Callable's `return_tags` parameter
+and perform the following actions:
+
+- Check to see that all provided tags are valid 'returnedTags' base values
+- Convert `return_tags`' list of base tag elements into a nested dict of all needed child tags
+
+The `element_name` should be the name of the element being called by the child Callable
+"""
+
+
 def check_tags(element_name: str):
     def check_tags_decorator(func: TCallable) -> TCallable:
         def processing(func, args, kwargs):
@@ -215,6 +237,11 @@ def check_tags(element_name: str):
     return check_tags_decorator
 
 
+"""Assigns an attribute to the child Callable that denotes which SOAP element
+it will be using. This is useful information for other helper functions.
+"""
+
+
 def operation_tag(element_name: str):
     def operation_tag_decorator(func: TCallable) -> TCallable:
         @wraps(func)
@@ -225,6 +252,11 @@ def operation_tag(element_name: str):
         return wrapper
 
     return operation_tag_decorator
+
+
+"""Examines a child Callable's `kwargs` and throws an exception if one or more of
+the keywords is not a valid child of the given `element_name`
+"""
 
 
 def check_arguments(element_name: str, child=None):
