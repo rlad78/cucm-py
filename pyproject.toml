@@ -38,3 +38,6 @@ clear_pass = "cucm.axl.credentials:delete_credentials"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
