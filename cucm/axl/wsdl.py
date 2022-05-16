@@ -400,14 +400,35 @@ def get_tree(z_client: Client, element_name: str) -> AXLElement:
     return AXLElement(__get_element_by_name(z_client, element_name))
 
 
-def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> dict:
+def fix_return_tags(
+    z_client: Client,
+    element_name: str,
+    tags: list[str],
+    children: Union[list[str], None] = None,
+) -> dict:
     tree = get_tree(z_client, element_name)
 
     if tree.get("returnedTags", None) is None:
         raise WSDLException(f"Element '{element_name}' has no returnedTags sub-element")
 
     tag_tree = tree["returnedTags"]
-    return_tags = {}
+    tag_stack = {}
+    return_tags = tag_stack
+
+    if children is not None:
+        for i, child in enumerate(children):
+            tag_tree = tag_tree.get(child, None)
+
+            if tag_tree is None:
+                raise WSDLException(
+                    f"{element_name} does not have child of {'->'.join(children[:i])}"
+                )
+
+            # add child to stack, position return_tags at
+            # bottom of stack
+            return_tags[child] = {}
+            return_tags = return_tags[child]
+
     for tag in tags:
         # uuid guard
         if tag == "uuid":
@@ -438,7 +459,7 @@ def fix_return_tags(z_client: Client, element_name: str, tags: list[str]) -> dic
         else:
             raise TagNotValid(tag, tag_tree.children_names(), elem_name=element_name)
 
-    return return_tags
+    return tag_stack
 
 
 def print_element_layout(

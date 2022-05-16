@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import Callable, TypeVar, Union
+from typing import Callable, TypeVar, Union, Sequence
 import inspect
 from zeep.helpers import serialize_object
 from copy import deepcopy
@@ -168,9 +168,9 @@ The `element_name` should be the name of the element being called by the child C
 """
 
 
-def check_tags(element_name: str):
+def check_tags(element_name: str, children: Union[str, Sequence[str], None] = None):
     def check_tags_decorator(func: TCallable) -> TCallable:
-        def processing(func, args, kwargs):
+        def processing(func, args, kwargs, children):
             if (
                 tags_param := inspect.signature(func).parameters.get(
                     "return_tags", Empty
@@ -179,15 +179,23 @@ def check_tags(element_name: str):
                 raise DumbProgrammerException(
                     f"No 'return_tags' param on {func.__name__}()"
                 )
-            elif tags_param.kind != tags_param.KEYWORD_ONLY:
+            if tags_param.kind != tags_param.KEYWORD_ONLY:
                 raise DumbProgrammerException(
                     f"Forgot to add '*' before return_tags on {func.__name__}()"
                 )
-            elif not element_name:
+            if not element_name:
                 raise DumbProgrammerException(
                     f"Forgot to provide element_name in check_tags decorator on {func.__name__}!!!"
                 )
-            elif "return_tags" not in kwargs:
+            if children is not None:
+                if not isinstance(children, Sequence):
+                    raise DumbProgrammerException(
+                        "'children' should be either a str or Sequence[str] if not None"
+                    )
+                if type(children) == str:
+                    children = [children]
+
+            if "return_tags" not in kwargs:
                 # tags are default
                 # if len(tags_param.default) == 0:
                 if tags_param.default is None:
@@ -195,6 +203,7 @@ def check_tags(element_name: str):
                         z_client=args[0].zeep,
                         element_name=element_name,
                         tags=get_return_tags(args[0].zeep, element_name),
+                        children=children,
                     )
             elif type(kwargs["return_tags"]) == list:
                 # supply all legal tags if an empty list is provided
@@ -203,26 +212,28 @@ def check_tags(element_name: str):
                         z_client=args[0].zeep,
                         element_name=element_name,
                         tags=get_return_tags(args[0].zeep, element_name),
+                        children=children,
                     )
                 else:
                     kwargs["return_tags"] = fix_return_tags(
                         z_client=args[0].zeep,
                         element_name=element_name,
                         tags=kwargs["return_tags"],
+                        children=children,
                     )
 
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             # if cfg.DISABLE_CHECK_ARGS:
             #     return await func(*args, **kwargs)
-            processing(func, args, kwargs)
+            processing(func, args, kwargs, children)
             return await func(*args, **kwargs)
 
         @wraps(func)
         def wrapper(*args, **kwargs):
             # if cfg.DISABLE_CHECK_TAGS:
             #     return func(*args, **kwargs)
-            processing(func, args, kwargs)
+            processing(func, args, kwargs, children)
             return func(*args, **kwargs)
 
         if inspect.iscoroutinefunction(func):

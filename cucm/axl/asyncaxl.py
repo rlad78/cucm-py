@@ -863,8 +863,11 @@ class AsyncAXL:
     #########################
 
     @serialize
-    async def get_phone_lines(self, name="", uuid="") -> list[dict]:
-        tags = fix_return_tags(self.zeep, "getPhone", ["lines"])
+    @check_tags("getPhone", children=["lines", "line"])
+    async def get_phone_lines(
+        self, name="", uuid="", *, return_tags: list[str] = None
+    ) -> list[dict]:
+        # tags = fix_return_tags(self.zeep, "getPhone", ["lines"])
         result = await self._generic_soap_with_uuid(
             "getPhone",
             APICall.GET,
@@ -872,7 +875,7 @@ class AsyncAXL:
             ["return", "phone", "lines", "line"],
             name=name,
             uuid=uuid,
-            returnedTags=tags,
+            returnedTags=return_tags,
         )
         if not result:
             return []  # adjust for empty dict returned
