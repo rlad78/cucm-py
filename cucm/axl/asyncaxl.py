@@ -394,6 +394,15 @@ class AsyncAXL:
         repeat_tries: int = 0,
         **kwargs,
     ) -> list:
+        """Processes a 'list' request in block-sized chunks to prevent AXL from timing out. Performs on-the-fly adjustments to block-sizes when timeouts occur.
+
+        :param element: SOAP element to be called
+        :param children: Children of expected response that drill down to the actual data, defaults to None
+        :param task_number: Override the logged task number, useful for batch operations, defaults to None
+        :param block_size: FOR RECURSIVE USE ONLY, DO NOT USE IN A METHOD CALL
+        :param repeat_tries: FOR RECURSIVE USE ONLY, DO NOT USE IN A METHOD CALL
+        :return: list of Zeep elements (or empty list if there are no elements found)
+        """
         if task_number is not None:
             this_task = task_number
         else:
@@ -471,6 +480,15 @@ class AsyncAXL:
         task_number: int = None,
         **kwargs,
     ) -> bool:
+        """Processes an 'update' request for a given `base_field` or `uuid`. Empty strings and None values are parsed out and not sent in SOAP call.
+
+        :param element: SOAP element to be caled
+        :param base_field: The field name used to identify the desired object (i.e. for updatePhone, this would be 'name')
+        :param base_value: The value for the field described by `base_field`, defaults to None
+        :param uuid: The uuid of the desired object, defaults to None
+        :param task_number: Override the logged task number, useful for batch operations, defaults to None
+        :return: True if update succeeded, False otherwise
+        """
         if uuid:
             kw_group = {base_field: base_value}
         elif base_value:
@@ -497,6 +515,12 @@ class AsyncAXL:
     async def _gather_method_calls(
         self, method: str, kwargs_list: list[dict]
     ) -> list[dict]:
+        """Helper method for concurrently running multiple method calls
+
+        :param method: AsyncAXL method, by name
+        :param kwargs_list: list of kw arguments to be sent with each method call
+        :return: list of results in dict form (assuming @serialize is used on the given method)
+        """
         if (func := getattr(self, method, None)) is None:
             raise DumbProgrammerException(f"{method} is not an AsyncAXL method")
 
@@ -582,15 +606,12 @@ class AsyncAXL:
         return result
 
     def __extract_template(self, element_name: str, template: dict, child="") -> dict:
-        """Removes all unnecessary values from a device/line/etc template, like None and "" values. Keeps any values that are required by the given element_name, regardless of what the values are.
+        """Removes all unnecessary values from a device/line/etc template, like None and "" values. Keeps any values that are required by the given `element_name`, regardless of what the values are.
 
-        Args:
-            element_name (str): The 'get' element used to get the template
-            template (dict): UCM template data
-            child (str, optional): Used as a key for the template dict. Use "" to ignore. Defaults to "".
-
-        Returns:
-            dict: Template data removed of unnecessary values
+        :param element_name: The 'get' element originally used to get the template
+        :param template: The template data, used to create a "blank" template
+        :param child: Name of element's child if data in `template` is a child of the given `element_name`. NOTE: this is DIFFERENT from `children` seen in other helper methods.
+        :return: Template data removed of unnecessary values
         """
 
         def is_removable(branch: dict) -> bool:
@@ -659,11 +680,8 @@ class AsyncAXL:
     async def _from_phone_template(self, template_name: str, **kwargs) -> dict:
         """Generates template data from a given UCM phone template. The template data can be used as a base to insert new phones.
 
-        Args:
-            template_name (str): The name of a phone template in Bulk Administration -> Phones -> Phone Template
-
-        Returns:
-            dict: The parsed template data
+        :param template_name: The name of a phone template in Bulk Administration -> Phones -> Phone Template
+        :return: The parsed template data
         """
         template_data = await self.get_phone(name=template_name)
         if not template_data:
@@ -681,12 +699,9 @@ class AsyncAXL:
     ) -> dict:
         """Generates template data from a given UCM line template. The template data can be used as a base to insert new lines.
 
-        Args:
-            template_name (str): The name of a line template from one of the phone templates in Bulk Administration -> Phones -> Phone Template
-            template_route_partition (str): The route partition of the template line
-
-        Returns:
-            dict: The parsed template data
+        :param template_name: The name of a line template from one of the phone templates in Bulk Administration -> Phones -> Phone Template
+        :param template_route_partition: The route partition of the template line
+        :return: The parsed template data
         """
         template_data = await self.get_directory_number(
             pattern=template_name,
@@ -841,7 +856,7 @@ class AsyncAXL:
         mobility_mode="",
         **kwargs,
     ) -> None:
-        pass  # TODO: figure out priorities for update arguments
+        pass  # TODO: figure out most needed update arguments
 
     #########################
     # ==== PHONE LINES ==== #
@@ -1097,7 +1112,7 @@ class AsyncAXL:
         protocol="SIP",
         services: list[dict] = None,
     ) -> None:
-        pass
+        pass  # TODO: continue writing method
 
     ###################
     # ==== USERS ==== #
@@ -1279,10 +1294,11 @@ class AsyncAXL:
         uuid="",
         profile: Union[str, list[str]] = None,
     ) -> None:
-        pass
+        pass  # TODO: continue writing method
 
 
 async def checkout_task() -> int:
+    """Retrieves a task number for a single task"""
     global TASK_COUNT_LOCK
     global TASK_COUNTER
 
@@ -1293,9 +1309,11 @@ async def checkout_task() -> int:
 
 
 def task_string(task_number: int) -> str:
+    """Turns a given `task_number` into a zero-padded, formatted string"""
     return f"[{str(task_number).zfill(4)}]"
 
 
 async def checkout_task_str() -> str:
+    """Retrieves a task number for a single task and returns a formatted task string"""
     task_number = await checkout_task()
     return task_string(task_number)
