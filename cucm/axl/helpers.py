@@ -75,7 +75,7 @@ def _tag_serialize_filter(tags: Union[list, dict], data: dict) -> dict:
 
 
 """Decorator that serializes Zeep objects into dicts. Can handle both Zeep and list[Zeep] types.
-If the child Callable has a `return_tags` kwarg, this decorator will filter out any unwanted tags.
+If `func` has a `return_tags` kwarg, this decorator will filter out any unwanted tags.
 """
 
 
@@ -158,13 +158,13 @@ def serialize(func: TCallable) -> TCallable:
         return wrapper
 
 
-"""Decorator that will process a child Callable's `return_tags` parameter
+"""Decorator that will process the func's `return_tags` parameter
 and perform the following actions:
 
 - Check to see that all provided tags are valid 'returnedTags' base values
 - Convert `return_tags`' list of base tag elements into a nested dict of all needed child tags
 
-The `element_name` should be the name of the element being called by the child Callable
+The `element_name` should be the name of the element being called by the func.
 """
 
 
@@ -248,7 +248,7 @@ def check_tags(element_name: str, children: Union[str, Sequence[str], None] = No
     return check_tags_decorator
 
 
-"""Assigns an attribute to the child Callable that denotes which SOAP element
+"""Assigns an attribute to the func that denotes which SOAP element
 it will be using. This is useful information for other helper functions.
 """
 
@@ -265,7 +265,7 @@ def operation_tag(element_name: str):
     return operation_tag_decorator
 
 
-"""Examines a child Callable's `kwargs` and throws an exception if one or more of
+"""Examines the func's `kwargs` and throws an exception if one or more of
 the keywords is not a valid child of the given `element_name`
 """
 
