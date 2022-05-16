@@ -514,7 +514,15 @@ class AsyncAXL:
         field_value: Union[str, list[str]],
         task_number: int = None,
         **kwargs,
-    ) -> CheckResults:
+    ) -> bool:
+        """Performs a call to the given `element` (usually a 'get' element) to determine if an object exists.
+
+        :param element: SOAP element to be called
+        :param field: The name or names of the field(s) needed to search for the object (i.e. for getLine this would be ['pattern', 'routePartitionName'])
+        :param field_value: The value or values of the provided field(s)
+        :param task_number: Override the logged task number, useful for batch operations, defaults to None
+        :return: True if the object was found, False if it wasn't
+        """
         if type(field) == str:
             kw_group = {field: field_value}
         elif isinstance(type(field), Sequence):
@@ -535,9 +543,9 @@ class AsyncAXL:
         #     return {False: field_value}
 
         if not results:
-            return CheckResults(False, field_value)
+            return False
         else:
-            return CheckResults(True, field_value)
+            return True
 
     async def _check_exists_many(
         self,
@@ -547,6 +555,14 @@ class AsyncAXL:
         task_number: int = None,
         **kwargs,
     ) -> CheckResults:
+        """Performs multiple calls to the given 'element' to determine if multiple objects exist
+
+        :param element: SOAP element to be called
+        :param field: The name or names of the field(s) needed to search for the object (i.e. for getLine this would be ['pattern', 'routePartitionName'])
+        :param field_values: A list of values (or a nested list of values if multiple fields are required) corresponding to the provided field(s)
+        :param task_number: Override the logged task number, useful for batch operations, defaults to None
+        :return: A named-tuple with the first value 'found' containing a list of `field_values` that were found, and the second value 'missing' with the rest that were not found
+        """
         check_tasks = {
             asyncio.create_task(
                 self._check_exists(element, field, fv, task_number, **kwargs)
@@ -555,12 +571,13 @@ class AsyncAXL:
         }
         await asyncio.wait(check_tasks)
 
-        result = CheckResults(True, [])
+        result = CheckResults([], [])
 
         for task in check_tasks:
             if task.exception() is not None or not task.result():
-                result.found = False
                 result.missing.append(check_tasks[task])
+            else:
+                result.found.append(check_tasks[task])
 
         return result
 
@@ -1231,8 +1248,10 @@ class AsyncAXL:
         await check_device
         if (exc := check_device.exception()) is not None:
             raise exc
-        if not (dev_result := check_device.result()).found:
-            raise InvalidArguments(f"Could not find device '{dev_result.missing}'")
+        if type(dev_result := check_device.result()) == bool and not dev_result:
+            raise InvalidArguments(f"Could not find device '{device}'")
+        elif isinstance(dev_result, CheckResults) and dev_result.missing:
+            raise InvalidArguments(f"Could not find device(s) '{dev_result.missing}'")
 
         # prevent user from being edited during update
         async with USER_MANIP_LOCKS[this_user_id]:
