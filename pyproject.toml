@@ -19,6 +19,7 @@ stdiomask = "^0.0.6"
 termcolor = "^1.1.0"
 tqdm = "^4.62.3"
 multipledispatch = "^0.6.0"
+flake8 = {version = "^4.0.1", optional = true}
 
 [tool.poetry.dev-dependencies]
 black = "^22.3.0"
@@ -34,6 +35,9 @@ show_tree = "cucm.debug:print_axl_tree"
 show_soap_tree = "cucm.debug:print_soap_tree"
 clear_url = "cucm.debug:clear_url_and_port"
 clear_pass = "cucm.axl.credentials:delete_credentials"
+
+[tool.poetry.extras]
+github = ["flake8"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
