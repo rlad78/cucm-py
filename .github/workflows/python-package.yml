@@ -34,7 +34,8 @@ jobs:
     - name: Set Poetry env
       run: |
         poetry env use ${{ matrix.python-version }}
-        poetry shell
+        echo "::set-output name=VENV_PYTHON::$(poetry env info -p)/bin/python"
+      id: penv
     
     - name: Install dependencies with Poetry
       run: |
