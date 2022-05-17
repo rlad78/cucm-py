@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
         poetry-version: ["1.1.13", "1.1.12"]
 
     steps:
@@ -34,8 +34,8 @@ jobs:
     - name: Set Poetry env
       run: |
         poetry env use ${{ matrix.python-version }}
-        echo "::set-output name=VENV_PYTHON::$(poetry env info -p)/bin/python"
-      id: penv
+        echo "::set-output name=POETRY_VENV::$(poetry env info -p)"
+      id: venv
     
     - name: Install dependencies with Poetry
       run: |
@@ -43,6 +43,8 @@ jobs:
     
     - name: Lint with flake8
       run: |
+        # work from the virtualenv
+        source ${{ steps.venv.output.POETRY_VENV }}/bin/activate
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
