@@ -66,6 +66,9 @@ class AXLElement:
         else:
             raise WSDLException(f"Unknown element format '{type(element)}'")
 
+        if not self.children and hasattr(self.type, "item_class"):
+            self.type = self.type.item_class
+
     def __getitem__(self, key):
         if (value := self.get(key, None)) is not None:
             return value
@@ -154,7 +157,10 @@ class AXLElement:
             and self.type not in (Sequence, Choice)
             and self.parent is not None
         ):
-            atrib_str += colored(f" ({type(self.type).__name__})", "green")
+            try:
+                atrib_str += colored(f" ({self.type.__name__})", "green")
+            except AttributeError:
+                atrib_str += colored(f" ({type(self.type).__name__})", "green")
 
         print(branch_str, name_str, atrib_str, sep="")
 
