@@ -103,6 +103,46 @@ class axl(object):
             f"https://{cucm}:8443/axl/",
         )
 
+    def _get_call(
+        self, element: str, children: List[str] = [], **kwargs
+    ) -> Union[object, Fault]:
+        """Standardized method for use with any AXL 'get' elements.
+
+        :param element: Name of element to be called (e.g. getPhone)
+        :param children: The path of nodes required to reach the data of the return
+            (e.g. for getPhone, ['return', 'phone']), defaults to []
+        :param kwargs: All of the named arguments to be included in the call
+        :return: The returned data object, or the Fault if one occured
+        """
+        # make sure the element exists in the schema
+        axl_call = getattr(self.client, element, None)
+        if axl_call is None:
+            raise Exception(
+                f"'{element}' is not a valid call for AXL {self.cucm_version}"
+            )
+
+        # if a uuid is provided, prioritize it over other args
+        if kwargs.get("uuid", None):
+            kwargs = {k: v for k, v in kwargs.items() if k in ("uuid", "returnedTags")}
+
+        # make the call to AXL
+        try:
+            results = axl_call(**kwargs)
+        except Fault as e:
+            return e
+
+        # iterate through data if children provided
+        for i, child in enumerate(children):
+            if hasattr(results, child):
+                results = getattr(results, child)
+            else:
+                raise Exception(
+                    ".".join(children[: i + 1])
+                    + f" does not exist in the returned data of {element}."
+                )
+
+        return results
+
     def get_locations(
         self,
         tagfilter={
