@@ -316,17 +316,19 @@ class axl(object):
             except Fault as e:
                 return e
 
-    def get_location(self, **args):
+    def get_location(self, name="", **kwargs):
         """
         Get device pool parameters
         :param name: location name
         :param uuid: location uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getLocation(**args)
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getLocation",
+            ["return", "location"],
+            name=name,
+            **kwargs,
+        )
 
     def add_location(
         self,
@@ -433,16 +435,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_region(self, **args):
+    def get_region(self, name="", **kwargs):
         """
         Get region information
         :param name: Region name
+        :param uuid: Region uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getRegion(**args)["return"]["region"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getRegion",
+            ["return", "region"],
+            name=name,
+            **kwargs,
+        )
 
     def add_region(self, name):
         """
@@ -540,16 +545,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_srst(self, **args):
+    def get_srst(self, name="", **kwargs):
         """
         Get SRST information
         :param name: SRST name
+        :param uuid: SRST uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getSrst(**args)["return"]["srst"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getSrst",
+            ["return", "srst"],
+            name=name,
+            **kwargs,
+        )
 
     def add_srst(self, name, ip_address, port=2000, sip_port=5060):
         """
@@ -619,16 +627,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_device_pool(self, **args):
+    def get_device_pool(self, name="", **kwargs):
         """
         Get device pool parameters
         :param name: device pool name
+        :param uuid: device pool uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getDevicePool(**args)["return"]["devicePool"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getDevicePool",
+            ["return", "devicePool"],
+            name=name,
+            **kwargs,
+        )
 
     def add_device_pool(
         self,
@@ -732,16 +743,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_conference_bridge(self, **args):
+    def get_conference_bridge(self, name="", **kwargs):
         """
         Get conference bridge parameters
         :param name: conference bridge name
+        :param uuid: conference bridge uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getConferenceBridge(**args)["return"]["conferenceBridge"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getConferenceBridge",
+            ["return", "conferenceBridge"],
+            name=name,
+            **kwargs,
+        )
 
     def add_conference_bridge(
         self,
@@ -819,16 +833,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_transcoder(self, **args):
+    def get_transcoder(self, name="", **kwargs):
         """
         Get conference bridge parameters
         :param name: transcoder name
+        :param uuid: transcoder uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getTranscoder(**args)["return"]["transcoder"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getTranscoder",
+            ["return", "transcoder"],
+            name=name,
+            **kwargs,
+        )
 
     def add_transcoder(
         self,
@@ -896,16 +913,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_mtp(self, **args):
+    def get_mtp(self, name="", **kwargs):
         """
         Get mtp parameters
         :param name: transcoder name
+        :param uuid: transcoder uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getMtp(**args)["return"]["mtp"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getMtp",
+            ["return", "mtp"],
+            name=name,
+            **kwargs,
+        )
 
     def add_mtp(
         self,
@@ -982,16 +1002,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_h323_gateway(self, **args):
+    def get_h323_gateway(self, name="", **kwargs):
         """
         Get H323 Gateway parameters
         :param name: H323 Gateway name
+        :param uuid: H323 Gateway uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getH323Gateway(**args)["return"]["h323Gateway"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getH323Gateway",
+            ["return", "h323Gateway"],
+            name=name,
+            **kwargs,
+        )
 
     def add_h323_gateway(self, **args):
         """
@@ -1068,17 +1091,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_route_group(self, **args):
+    def get_route_group(self, name="", **kwargs):
         """
         Get route group
         :param name: route group name
         :param uuid: route group uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getRouteGroup(**args)["return"]["routeGroup"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getRouteGroup",
+            ["return", "routeGroup"],
+            name=name,
+            **kwargs,
+        )
 
     def add_route_group(self, name, distribution_algorithm="Top Down", members=[]):
         """
@@ -1147,17 +1172,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_route_list(self, **args):
+    def get_route_list(self, name="", **kwargs):
         """
         Get route list
         :param name: route list name
         :param uuid: route list uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getRouteList(**args)["return"]["routeList"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getRouteList",
+            ["return", "routeList"],
+            name=name,
+            **kwargs,
+        )
 
     def add_route_list(
         self,
@@ -1256,17 +1283,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_partition(self, **args):
+    def get_partition(self, name="", **kwargs):
         """
         Get partition details
-        :param partition: Partition name
-        :param uuid: UUID name
+        :param name: Partition name
+        :param uuid: Partition UUID
         :return: result dictionary
         """
-        try:
-            return self.client.getRoutePartition(**args)["return"]["routePartition"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getRoutePartition",
+            ["return", "routePartition"],
+            name=name,
+            **kwargs,
+        )
 
     def add_partition(self, name, description="", time_schedule_name="All the time"):
         """
@@ -1328,17 +1357,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_calling_search_space(self, **args):
+    def get_calling_search_space(self, name="", **kwargs):
         """
         Get Calling search space details
         :param name: Calling search space name
         :param uuid: Calling search space uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getCss(**args)["return"]["css"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getCss",
+            ["return", "css"],
+            name=name,
+            **kwargs,
+        )
 
     def add_calling_search_space(self, name, description="", members=[]):
         """
@@ -1535,18 +1566,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_media_resource_group(self, **args):
+    def get_media_resource_group(self, name="", **kwargs):
         """
         Get a media resource group details
-        :param media_resource_group: Media resource group name
+        :param name: Media resource group name
+        :param uuid: Media resource group uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getMediaResourceGroup(**args)["return"][
-                "mediaResourceGroup"
-            ]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getMediaResourceGroup",
+            ["return", "mediaResourceGroup"],
+            name=name,
+            **kwargs,
+        )
 
     def add_media_resource_group(
         self, name, description="", multicast="false", members=[]
@@ -1612,16 +1644,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_media_resource_group_list(self, name):
+    def get_media_resource_group_list(self, name="", **kwargs):
         """
         Get a media resource group list details
         :param name: Media resource group list name
+        :param uuid: Media resource group list uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getMediaResourceList(name=name)
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getMediaResourceList",
+            ["return", "mediaResourceList"],
+            name=name,
+            **kwargs,
+        )
 
     def add_media_resource_group_list(self, name, members=[]):
         """
@@ -1689,17 +1724,21 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_directory_number(self, **args):
-        """
-        Get directory number details
-        :param name:
-        :param partition:
+    def get_directory_number(self, pattern="", route_partition="", **kwargs):
+        """Get directory number details
+
+        :param pattern: directory number pattern
+        :param route_partition: directory number route partition
+        :param uuid: directory number uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getLine(**args)["return"]["line"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getLine",
+            ["return", "line"],
+            pattern=pattern,
+            routePartitionName=route_partition,
+            **kwargs,
+        )
 
     def add_directory_number(
         self,
@@ -1860,17 +1899,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_cti_route_point(self, **args):
+    def get_cti_route_point(self, name="", **kwargs):
         """
         Get CTI route point details
         :param name: CTI route point name
         :param uuid: CTI route point uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getCtiRoutePoint(**args)["return"]["ctiRoutePoint"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getCtiRoutePoint",
+            ["return", "ctiRoutePoint"],
+            name=name,
+            **kwargs,
+        )
 
     def add_cti_route_point(
         self,
@@ -2002,16 +2043,19 @@ class axl(object):
             a.extend(each)
         return a
 
-    def get_phone(self, **args):
+    def get_phone(self, name="", **kwargs):
         """
         Get device profile parameters
-        :param phone: profile name
+        :param name: phone name
+        :param uuid: phone uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getPhone(**args)["return"]["phone"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getPhone",
+            ["return", "phone"],
+            name=name,
+            **kwargs,
+        )
 
     def add_phone(
         self,
@@ -2203,17 +2247,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_device_profile(self, **args):
+    def get_device_profile(self, name="", **kwargs):
         """
         Get device profile parameters
         :param name: profile name
         :param uuid: profile uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getDeviceProfile(**args)["return"]["deviceProfile"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getDeviceProfile",
+            ["return", "deviceProfile"],
+            name=name,
+            **kwargs,
+        )
 
     def add_device_profile(
         self,
@@ -2338,16 +2384,19 @@ class axl(object):
             a.extend(each)
         return a
 
-    def get_user(self, userid):
+    def get_user(self, userid="", **kwargs):
         """
         Get user parameters
-        :param user_id: profile name
+        :param userid: profile user id
+        :param uuid: profile uuid
         :return: result dictionary
         """
-        try:
-            return self.client.getUser(userid=userid)["return"]["user"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getUser",
+            ["return", "user"],
+            userid=userid,
+            **kwargs,
+        )
 
     def add_user(
         self,
@@ -2960,17 +3009,19 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_sip_trunk(self, **args):
+    def get_sip_trunk(self, name="", **kwargs):
         """
         Get sip trunk
         :param name:
         :param uuid:
         :return: result dictionary
         """
-        try:
-            return self.client.getSipTrunk(**args)["return"]["sipTrunk"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getSipTrunk",
+            ["return", "sipTrunk"],
+            name=name,
+            **kwargs,
+        )
 
     def update_sip_trunk(self, **args):
         """
