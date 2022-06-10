@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 import os
 import json
+from typing import List, Union
 from requests import Session
 from requests.exceptions import SSLError, ConnectionError
 import re
