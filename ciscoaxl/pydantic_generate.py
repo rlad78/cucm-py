@@ -1,10 +1,33 @@
+from ciscoaxl import axl
 from ciscoaxl.wsdl import AXLElement, get_tree
 from zeep.xsd.elements.indicators import Choice, Sequence
-from typing import Dict
+from typing import Dict, List
 from collections import namedtuple
 from collections.abc import Iterable
+import keyword
+from pathlib import Path
 
 validator_info = namedtuple("validator_info", ["model_name", "validator_type", "items"])
+
+# TODO: deal with underscore attr's being forced to private
+# TODO: find a way for user to fetch 'class' attr even though it's banned
+MODEL_FILE_HEADER = """from pydantic import BaseModel as PydanticBaseModel
+from pydantic import Field
+from typing import Any, Union
+
+
+class BaseModel(PydanticBaseModel):
+    class Config:
+        allow_population_by_field_name = True
+        underscore_attrs_are_private = False
+
+
+class XFkType(BaseModel):
+    _value_1: str
+    uuid: str
+
+
+"""
 
 
 def axl_to_python_type(element: AXLElement) -> str:
@@ -18,7 +41,9 @@ def axl_to_python_type(element: AXLElement) -> str:
 
     etype = element.type
 
-    if hasattr(etype, "_element") and etype._element:
+    if etype.name == "XFkType":
+        return "XFkType"
+    elif hasattr(etype, "_element") and etype._element:
         if hasattr(etype._element, "type"):
             if etype._element.type.accepted_types:
                 return parse_accept_types(etype._element.type.accepted_types)
@@ -48,7 +73,7 @@ def axl_to_python_type(element: AXLElement) -> str:
         return "str"
 
 
-def generate_return_models(z_client, element_name: str) -> dict:
+def generate_return_models(z_client, element_name: str) -> Dict[str, str]:
     models: Dict[str, dict] = {}
 
     def parse_nodes(e: AXLElement) -> str:
@@ -85,9 +110,53 @@ def generate_return_models(z_client, element_name: str) -> dict:
 
     schemas: Dict[str, str] = {}
     for type_name, items in models.items():
-        schema = "\t" + f"class {type_name}(BaseClass):" + "\n"
+        schema = f"class {type_name}(BaseModel):" + "\n"
         for var_name, var_type in items.items():
-            schema += "\t\t" + f"{var_name}: {var_type}" + "\n"
+            if var_name in keyword.kwlist + dir(__builtins__):
+                schema += (
+                    "\t"
+                    + f"{var_name}_field: {var_type} = Field(alias='{var_name}')"
+                    + "\n"
+                )
+            else:
+                schema += "\t" + f"{var_name}: {var_type}" + "\n"
         schemas[type_name] = schema
 
     return schemas
+
+
+def get_elements_used() -> List[str]:
+    return ["getPhone"]  # ! just for testing
+
+
+def generate_py_file(z_client) -> None:
+    all_models: Dict[str, str] = {}
+
+    for element in get_elements_used():
+        models = generate_return_models(z_client, element)
+
+        # check for collisions
+        for model_name, schema in models.items():
+            if all_models.get(model_name, None) == schema:
+                raise Exception(
+                    f"Schema collision for {model_name}:"
+                    + "\n\n-----\n\n"
+                    + all_models.get(model_name, None)
+                    + "\n\n-----\n\n"
+                    + schema
+                )
+
+        all_models.update(models)
+
+    savefile = Path(__file__).parent / "pydantic_models.py"
+    if savefile.exists():
+        savefile.unlink()
+
+    with savefile.open("w") as fptr:
+        fptr.write(MODEL_FILE_HEADER)
+        fptr.write("\n\n".join(schema for schema in all_models.values()))
+
+
+if __name__ == "__main__":
+    ucm = axl("rcarte4", "CUArfCU@93", "ucm-01.clemson.edu", "11.5")
+    generate_py_file(ucm._zeep)
