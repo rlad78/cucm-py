@@ -158,5 +158,5 @@ def generate_py_file(z_client) -> None:
 
 
 if __name__ == "__main__":
-    ucm = axl("rcarte4", "CUArfCU@93", "ucm-01.clemson.edu", "11.5")
+    ucm = axl()  # SUPPLY CREDS HERE BUT DON'T COMMIT
     generate_py_file(ucm._zeep)
