@@ -2,7 +2,9 @@ from typing import Any, Dict, List, Union
 from zeep import Client
 from zeep.exceptions import LookupError
 from zeep.xsd.elements.element import Element
+from zeep.xsd.elements.attribute import Attribute
 from zeep.xsd.elements.indicators import Choice, Sequence
+from zeep.xsd.elements import Any as AnyType
 from zeep.xsd import Nil, AnyObject
 from ciscoaxl.exceptions import (
     WSDLDrillDownException,
@@ -13,12 +15,15 @@ from ciscoaxl.exceptions import (
     WSDLValueOnlyException,
 )
 from termcolor import colored
+from math import inf
 
 
 class AXLElement:
     """An object with a tree-like structure useful for navigating and getting data from XSD elements"""
 
-    def __init__(self, element: Union[Element, Choice], parent=None) -> None:
+    def __init__(
+        self, element: Union[Element, Choice, Sequence, Attribute], parent=None
+    ) -> None:
         """An object with a tree-like structure useful for navigating and getting data from XSD elements
 
         :param element: An XSD (Zeep) element
@@ -26,6 +31,7 @@ class AXLElement:
         """
         self.elem = element
         self.parent = parent
+        self.max_results: Union[int, float] = 1
 
         if type(element) == Sequence:
             self.name = "[ group ]"
@@ -43,34 +49,37 @@ class AXLElement:
             ]
             self.child_names = [e.name for e in self.children]
             self.needed = bool(self.elem.min_occurs != 0)
-        elif type(element) == Element:
+        elif type(element) in (Element, Attribute):
             self.name = element.name
             self.type = element.type
+
             if self.parent is not None and self.parent.type == Choice:
                 self.needed = False
             else:
                 self.needed = not element.is_optional
+
+            e_max = getattr(element, "max_occurs", None)
+            if e_max is not None:
+                if type(e_max) == int and e_max > 1:
+                    self.max_results = e_max
+                elif type(e_max) == str and e_max == "unbounded":
+                    self.max_results = inf
+
+            self.children = []
             if hasattr(element.type, "elements"):
                 package = element.type.elements_nested[0][1]
                 if type(package) == Sequence:
-                    self.children = [
-                        AXLElement(e, self)
-                        for e in package
-                        if getattr(e, "name", None) not in ("_value_1", None)
-                        or type(e) == Choice
-                    ]
-                elif type(package) == Element:
-                    self.children = (
-                        [AXLElement(package, self)]
-                        if not package.name.startswith("_value_")
-                        else []
-                    )
-                elif type(package) == Choice:
-                    self.children = [AXLElement(package, self)]
+                    for e in package:
+                        if type(e) == AnyType:
+                            continue
+                        self.children.append(AXLElement(e, self))
+                elif type(package) in (Element, Choice):
+                    self.children.append(AXLElement(package, self))
                 else:
                     raise WSDLException(f"Unknown package format '{type(package)}'")
-            else:
-                self.children = []
+            if hasattr(element.type, "_attributes"):
+                for a in element.type._attributes:
+                    self.children.append(AXLElement(a, self))
         else:
             raise WSDLException(f"Unknown element format '{type(element)}'")
 
@@ -85,7 +94,10 @@ class AXLElement:
         name = self.name
         xsd_type = type(self.type).__name__
         children = len(self.children)
-        return f"AXLElement(name={name}, xsd_type={xsd_type}, children={children})"
+        return (
+            f"AXLElement(name={name}, xsd_type={xsd_type}, "
+            + f"children={children}, max_results={self.max_results})"
+        )
 
     def _parent_chain(self) -> str:
         """Returns a formatted string showing the path of nodes along the tree that leads to this element.
