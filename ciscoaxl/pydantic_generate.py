@@ -89,6 +89,7 @@ class ModelConstruct:
         return schema
 
 
+# regex to locate AXL 'get' elements used in axl.py
 r_getmethod = re.compile(r"^[^#]+self\.client\.(get\w+)\(")
 
 MODEL_FILE_HEADER = """from pydantic import BaseModel as PydanticBaseModel
@@ -115,15 +116,26 @@ class BaseModel(PydanticBaseModel):
 
 
 def axl_to_python_types(element: AXLElement) -> List[str]:
-    def parse_accept_types(a_types) -> List[str]:
+    """Analyzes an AXL element to determine the closest relative Python type(s)
+
+    Args:
+        element (AXLElement): The element to analyze
+
+    Returns:
+        List[str]: A list of names of Python types that can be used for the given element
+    """
+
+    def parse_accept_types(a_types: list) -> List[str]:
         """Assumes that a_types has non-zero length"""
         return [t.__name__ for t in a_types if t.__module__ == "builtins"]
 
     etype = element.type
     py_types = ["Any"]  # fallback value
 
+    # XFkType is common but hard to analyze, let's hardcode it
     if etype.name == "XFkType":
         py_types = ["XFkType"]
+    # type has it's own defined XSD element
     elif hasattr(etype, "_element") and etype._element:
         if hasattr(etype._element, "type"):
             if etype._element.type.accepted_types:
@@ -137,12 +149,14 @@ def axl_to_python_types(element: AXLElement) -> List[str]:
                 py_types = ["Any"]
         else:
             py_types = ["Any"]  # uncommon object(s)
+    # type has a list of accepted Python/SOAP types
     elif (
         hasattr(etype, "accepted_types")
         and etype.accepted_types
         and isinstance(etype.accepted_types, Iterable)
     ):
         py_types = parse_accept_types(etype.accepted_types)
+    # element is an 'item', need to refer to its item_class
     elif (
         hasattr(etype, "item_class")
         and etype.item_class
@@ -155,8 +169,18 @@ def axl_to_python_types(element: AXLElement) -> List[str]:
 
 
 def generate_return_models(z_client, element_name: str) -> Dict[str, ModelConstruct]:
+    """Take a 'get'/'list' AXL element and return a Pydantic model description of the element's return object
+
+    Args:
+        z_client: A Zeep client connected to a UCM instance
+        element_name (str): The name of the 'get/'list' element used
+
+    Returns:
+        Dict[str, ModelConstruct]: All models required for the output of the given element
+    """
     models: Dict[str, ModelConstruct] = {}
 
+    # recursive parsing of element nodes
     def parse_nodes(e: AXLElement) -> str:
         def deal_with_choice(c: AXLElement) -> dict:
             choice_items = {}
@@ -181,6 +205,7 @@ def generate_return_models(z_client, element_name: str) -> Dict[str, ModelConstr
                 model_elements[child.name] = ModelElement(
                     child.name, child, axl_to_python_types(child)
                 )
+        # store any new models needed
         models[e.type.name] = ModelConstruct(e.type.name, e, model_elements)
 
         # pass back up to parent as model element
@@ -198,7 +223,11 @@ def generate_return_models(z_client, element_name: str) -> Dict[str, ModelConstr
 
 
 def get_elements_used() -> Set[str]:
-    # return ["getPhone"]  # ! just for testing
+    """Scans through axl.py and finds any 'get' elements used (ignores comments)
+
+    Returns:
+        Set[str]: Set of the names of all 'get' elements found
+    """
     found_elements = set()
 
     axl_file = Path(__file__).parent / "axl.py"
@@ -212,6 +241,12 @@ def get_elements_used() -> Set[str]:
 
 
 def generate_py_file(z_client) -> None:
+    """Generates a Python file with Pydantic models of all elements used in axl.py
+
+    Args:
+        z_client: A Zeep client connected to a UCM instance
+    """
+
     def resolve_collision_rename(
         schema: Dict[str, ModelConstruct],
         element_models: Dict[str, ModelConstruct],
@@ -230,9 +265,6 @@ def generate_py_file(z_client) -> None:
                     if conflict_name in element.pytypes:
                         element.pytypes.remove(conflict_name)
                         element.pytypes.append(replacement)
-            # altered_model = model_dict[conflict_name]
-            # altered_model.name = replacement
-            # model_dict[replacement] = altered_model
 
     all_models: Dict[str, ModelConstruct] = {}
     root_model_refs: Dict[str, ModelConstruct] = {}
