@@ -51,13 +51,14 @@ class ModelElement:
             t_str = f"Union[{', '.join(self.pytypes)}, None]"
         elif len(self.pytypes) > 1:
             t_str = f"Union[{', '.join(self.pytypes)}]"
-        elif self.optional:
-            t_str = f"Optional[{self.pytypes[0]}]"
         else:
             t_str = self.pytypes[0]
 
         if self.multiple:
             t_str = f"List[{t_str}]"
+
+        if self.optional:
+            t_str = f"Optional[{t_str}]"
 
         return t_str
 
@@ -95,6 +96,7 @@ r_getmethod = re.compile(r"^[^#]+self\.client\.(get\w+)\(")
 MODEL_FILE_HEADER = """from pydantic import BaseModel as PydanticBaseModel
 from pydantic import Field
 from typing import Any, Optional, Union, List, Dict
+from pprint import pformat
 
 
 class BaseModel(PydanticBaseModel):
@@ -106,6 +108,12 @@ class BaseModel(PydanticBaseModel):
                 return getattr(self, item + "_")
             except AttributeError:
                 raise err from None
+
+    def __repr__(self) -> str:
+        return pformat(self.dict())
+
+    def __str__(self) -> str:
+        return self.__repr__()
 
     class Config:
         allow_population_by_field_name = True
