@@ -23,6 +23,7 @@ from zeep.transports import Transport
 from zeep.cache import SqliteCache
 from zeep.plugins import HistoryPlugin
 from zeep.exceptions import Fault
+from ciscoaxl.helpers import check_tagfilter
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -105,14 +106,14 @@ class axl(object):
         )
 
     def _get_call(
-        self, element: str, children: List[str] = [], **kwargs
+        self, element: str, children: List[str] = [], **data
     ) -> Union[object, Fault]:
         """Standardized method for use with any AXL 'get' elements.
 
         :param element: Name of element to be called (e.g. getPhone)
         :param children: The path of nodes required to reach the data of the return
             (e.g. for getPhone, ['return', 'phone']), defaults to []
-        :param kwargs: All of the named arguments to be included in the call
+        :param data: All of the named arguments to be included in the call
         :return: The returned data object, or the Fault if one occured
         """
         # make sure the element exists in the schema
@@ -123,12 +124,12 @@ class axl(object):
             )
 
         # if a uuid is provided, prioritize it over other args
-        if kwargs.get("uuid", None):
-            kwargs = {k: v for k, v in kwargs.items() if k in ("uuid", "returnedTags")}
+        if data.get("uuid", None):
+            data = {k: v for k, v in data.items() if k in ("uuid", "returnedTags")}
 
         # make the call to AXL
         try:
-            results = axl_call(**kwargs)
+            results = axl_call(**data)
         except Fault as e:
             return e
 
@@ -317,7 +318,8 @@ class axl(object):
             except Fault as e:
                 return e
 
-    def get_location(self, name="", **kwargs):
+    @check_tagfilter("getLocation")
+    def get_location(self, name="", *, uuid="", tagfilter={}):
         """
         Get device pool parameters
         :param name: location name
@@ -328,7 +330,8 @@ class axl(object):
             "getLocation",
             ["return", "location"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_location(
@@ -436,7 +439,8 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_region(self, name="", **kwargs):
+    @check_tagfilter("getRegion")
+    def get_region(self, name="", *, uuid="", tagfilter={}):
         """
         Get region information
         :param name: Region name
@@ -447,7 +451,8 @@ class axl(object):
             "getRegion",
             ["return", "region"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_region(self, name):
@@ -546,7 +551,8 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_srst(self, name="", **kwargs):
+    @check_tagfilter("getSrst")
+    def get_srst(self, name="", *, uuid="", tagfilter={}):
         """
         Get SRST information
         :param name: SRST name
@@ -557,7 +563,8 @@ class axl(object):
             "getSrst",
             ["return", "srst"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_srst(self, name, ip_address, port=2000, sip_port=5060):
@@ -628,7 +635,7 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_device_pool(self, name="", **kwargs):
+    def get_device_pool(self, name="", *, uuid="", tagfilter={}):
         """
         Get device pool parameters
         :param name: device pool name
@@ -639,7 +646,8 @@ class axl(object):
             "getDevicePool",
             ["return", "devicePool"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_device_pool(
@@ -744,7 +752,7 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_conference_bridge(self, name="", **kwargs):
+    def get_conference_bridge(self, name="", *, uuid="", tagfilter={}):
         """
         Get conference bridge parameters
         :param name: conference bridge name
@@ -755,7 +763,8 @@ class axl(object):
             "getConferenceBridge",
             ["return", "conferenceBridge"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_conference_bridge(
@@ -834,7 +843,8 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_transcoder(self, name="", **kwargs):
+    @check_tagfilter("getTranscoder")
+    def get_transcoder(self, name="", *, uuid="", tagfilter={}):
         """
         Get conference bridge parameters
         :param name: transcoder name
@@ -845,7 +855,8 @@ class axl(object):
             "getTranscoder",
             ["return", "transcoder"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_transcoder(
@@ -914,7 +925,8 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_mtp(self, name="", **kwargs):
+    @check_tagfilter("getMtp")
+    def get_mtp(self, name="", *, uuid="", tagfilter={}):
         """
         Get mtp parameters
         :param name: transcoder name
@@ -925,7 +937,8 @@ class axl(object):
             "getMtp",
             ["return", "mtp"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_mtp(
@@ -1003,7 +1016,8 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_h323_gateway(self, name="", **kwargs):
+    @check_tagfilter("getH323Gateway")
+    def get_h323_gateway(self, name="", *, uuid="", tagfilter={}):
         """
         Get H323 Gateway parameters
         :param name: H323 Gateway name
@@ -1014,7 +1028,8 @@ class axl(object):
             "getH323Gateway",
             ["return", "h323Gateway"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_h323_gateway(self, **args):
