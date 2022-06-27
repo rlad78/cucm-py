@@ -320,11 +320,12 @@ class axl(object):
 
     @check_tagfilter("getLocation")
     def get_location(self, name="", *, uuid="", tagfilter={}):
-        """
-        Get device pool parameters
-        :param name: location name
-        :param uuid: location uuid
-        :return: result dictionary
+        """Get device pool parameters
+
+        :param name: Device pool name.
+        :param uuid: (optional) Device pool UUID. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getLocation",
@@ -354,6 +355,7 @@ class axl(object):
         :param within_immersive_kbits: ucm 10
         :return: result dictionary
         """
+        self.get_location(name="nope", uuid="nope")
         if (
             self.cucm_version == "8.6"
             or self.cucm_version == "9.0"
@@ -638,9 +640,10 @@ class axl(object):
     def get_device_pool(self, name="", *, uuid="", tagfilter={}):
         """
         Get device pool parameters
-        :param name: device pool name
-        :param uuid: device pool uuid
-        :return: result dictionary
+        :param name: Device pool name
+        :param uuid: Device pool uuid. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getDevicePool",
@@ -752,12 +755,14 @@ class axl(object):
         except Fault as e:
             return e
 
+    @check_tagfilter("getConferenceBridge")
     def get_conference_bridge(self, name="", *, uuid="", tagfilter={}):
         """
         Get conference bridge parameters
-        :param name: conference bridge name
-        :param uuid: conference bridge uuid
-        :return: result dictionary
+        :param name: Conference bridge name
+        :param uuid: Conference bridge uuid. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getConferenceBridge",
@@ -847,9 +852,10 @@ class axl(object):
     def get_transcoder(self, name="", *, uuid="", tagfilter={}):
         """
         Get conference bridge parameters
-        :param name: transcoder name
-        :param uuid: transcoder uuid
-        :return: result dictionary
+        :param name: Transcoder name.
+        :param uuid: Transcoder uuid. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getTranscoder",
@@ -929,9 +935,10 @@ class axl(object):
     def get_mtp(self, name="", *, uuid="", tagfilter={}):
         """
         Get mtp parameters
-        :param name: transcoder name
-        :param uuid: transcoder uuid
-        :return: result dictionary
+        :param name: Transcoder name.
+        :param uuid: Transcoder uuid. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getMtp",
@@ -1020,9 +1027,10 @@ class axl(object):
     def get_h323_gateway(self, name="", *, uuid="", tagfilter={}):
         """
         Get H323 Gateway parameters
-        :param name: H323 Gateway name
-        :param uuid: H323 Gateway uuid
-        :return: result dictionary
+        :param name: H323 Gateway name.
+        :param uuid: H323 Gateway uuid. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getH323Gateway",
@@ -1107,18 +1115,21 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_route_group(self, name="", **kwargs):
+    @check_tagfilter("getRouteGroup")
+    def get_route_group(self, name="", *, uuid="", tagfilter={}):
         """
         Get route group
-        :param name: route group name
-        :param uuid: route group uuid
-        :return: result dictionary
+        :param name: Route group name.
+        :param uuid: Route group uuid. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getRouteGroup",
             ["return", "routeGroup"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_route_group(self, name, distribution_algorithm="Top Down", members=[]):
@@ -1188,18 +1199,21 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_route_list(self, name="", **kwargs):
+    @check_tagfilter("getRouteList")
+    def get_route_list(self, name="", *, uuid="", tagfilter={}):
         """
         Get route list
-        :param name: route list name
-        :param uuid: route list uuid
-        :return: result dictionary
+        :param name: Route list name.
+        :param uuid: Route list uuid. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getRouteList",
             ["return", "routeList"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_route_list(
@@ -1299,18 +1313,21 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_partition(self, name="", **kwargs):
+    @check_tagfilter("getRoutePartition")
+    def get_partition(self, name="", *, uuid="", tagfilter={}):
         """
         Get partition details
         :param name: Partition name
-        :param uuid: Partition UUID
-        :return: result dictionary
+        :param uuid: Partition UUID. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getRoutePartition",
             ["return", "routePartition"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_partition(self, name, description="", time_schedule_name="All the time"):
@@ -1373,18 +1390,21 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_calling_search_space(self, name="", **kwargs):
+    @check_tagfilter("getCss")
+    def get_calling_search_space(self, name="", *, uuid="", tagfilter={}):
         """
         Get Calling search space details
-        :param name: Calling search space name
-        :param uuid: Calling search space uuid
-        :return: result dictionary
+        :param name: Calling search space name.
+        :param uuid: Calling search space uuid. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getCss",
             ["return", "css"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_calling_search_space(self, name, description="", members=[]):
@@ -1582,18 +1602,21 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_media_resource_group(self, name="", **kwargs):
+    @check_tagfilter("getMediaResourceGroup")
+    def get_media_resource_group(self, name="", *, uuid="", tagfilter={}):
         """
         Get a media resource group details
-        :param name: Media resource group name
-        :param uuid: Media resource group uuid
-        :return: result dictionary
+        :param name: Media resource group name.
+        :param uuid: Media resource group uuid. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getMediaResourceGroup",
             ["return", "mediaResourceGroup"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_media_resource_group(
