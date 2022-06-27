@@ -1686,18 +1686,20 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_media_resource_group_list(self, name="", **kwargs):
+    @check_tagfilter("getMediaRessourceList")
+    def get_media_resource_group_list(self, name="", *, uuid="", tagfilter={}):
         """
         Get a media resource group list details
         :param name: Media resource group list name
-        :param uuid: Media resource group list uuid
-        :return: result dictionary
+        :param uuid: Media resource group list uuid. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
         """
         return self._get_call(
             "getMediaResourceList",
             ["return", "mediaResourceList"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_media_resource_group_list(self, name, members=[]):
@@ -1766,20 +1768,24 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_directory_number(self, pattern="", route_partition="", **kwargs):
+    @check_tagfilter("getLine")
+    def get_directory_number(
+        self, pattern="", route_partition="", *, uuid="", tagfilter={}
+    ):
         """Get directory number details
 
         :param pattern: directory number pattern
         :param route_partition: directory number route partition
-        :param uuid: directory number uuid
-        :return: result dictionary
+        :param uuid: directory number uuid. Overrides both 'pattern' and 'route_partition'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
         """
         return self._get_call(
             "getLine",
             ["return", "line"],
             pattern=pattern,
             routePartitionName=route_partition,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_directory_number(
@@ -1941,18 +1947,20 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_cti_route_point(self, name="", **kwargs):
+    @check_tagfilter("getCtiRoutePoint")
+    def get_cti_route_point(self, name="", *, uuid="", tagfilter={}):
         """
         Get CTI route point details
-        :param name: CTI route point name
-        :param uuid: CTI route point uuid
-        :return: result dictionary
+        :param name: CTI route point name.
+        :param uuid: CTI route point uuid. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
         """
         return self._get_call(
             "getCtiRoutePoint",
             ["return", "ctiRoutePoint"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_cti_route_point(
@@ -2085,18 +2093,20 @@ class axl(object):
             a.extend(each)
         return a
 
-    def get_phone(self, name="", **kwargs):
+    @check_tagfilter("getPhone")
+    def get_phone(self, name="", *, uuid="", tagfilter={}):
         """
         Get device profile parameters
-        :param name: phone name
-        :param uuid: phone uuid
-        :return: result dictionary
+        :param name: phone name.
+        :param uuid: phone uuid. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
         """
         return self._get_call(
             "getPhone",
             ["return", "phone"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_phone(
@@ -2289,18 +2299,20 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_device_profile(self, name="", **kwargs):
+    @check_tagfilter("getDeviceProfile")
+    def get_device_profile(self, name="", *, uuid="", tagfilter={}):
         """
         Get device profile parameters
-        :param name: profile name
-        :param uuid: profile uuid
-        :return: result dictionary
+        :param name: profile name.
+        :param uuid: profile uuid. Overrides 'name'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
         """
         return self._get_call(
             "getDeviceProfile",
             ["return", "deviceProfile"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_device_profile(
@@ -2426,18 +2438,20 @@ class axl(object):
             a.extend(each)
         return a
 
-    def get_user(self, userid="", **kwargs):
+    @check_tagfilter("getUser")
+    def get_user(self, userid="", *, uuid="", tagfilter={}):
         """
         Get user parameters
         :param userid: profile user id
-        :param uuid: profile uuid
-        :return: result dictionary
+        :param uuid: profile uuid. Overrides 'userid'.
+        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
         """
         return self._get_call(
             "getUser",
             ["return", "user"],
             userid=userid,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def add_user(
