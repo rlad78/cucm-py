@@ -123,8 +123,11 @@ class axl(object):
                 f"'{element}' is not a valid call for AXL {self.cucm_version}"
             )
 
-        # if a uuid is provided, prioritize it over other args
-        if data.get("uuid", None):
+        # if uuid is provided but default, we need to get rid of it
+        if data.get("uuid", None) == "":
+            data.pop("uuid")
+        # if a real uuid is provided, remove other unneeded tags
+        elif data.get("uuid", None) is not None:
             data = {k: v for k, v in data.items() if k in ("uuid", "returnedTags")}
 
         # make the call to AXL
