@@ -327,7 +327,7 @@ class axl(object):
 
         :param name: Device pool name.
         :param uuid: (optional) Device pool UUID. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
         :return: result Zeep object
         """
         return self._get_call(
@@ -645,7 +645,7 @@ class axl(object):
         Get device pool parameters
         :param name: Device pool name
         :param uuid: Device pool uuid. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
         :return: result Zeep object
         """
         return self._get_call(
@@ -764,7 +764,7 @@ class axl(object):
         Get conference bridge parameters
         :param name: Conference bridge name
         :param uuid: Conference bridge uuid. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
         :return: result Zeep object
         """
         return self._get_call(
@@ -857,7 +857,7 @@ class axl(object):
         Get conference bridge parameters
         :param name: Transcoder name.
         :param uuid: Transcoder uuid. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
         :return: result Zeep object
         """
         return self._get_call(
@@ -940,7 +940,7 @@ class axl(object):
         Get mtp parameters
         :param name: Transcoder name.
         :param uuid: Transcoder uuid. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
         :return: result Zeep object
         """
         return self._get_call(
@@ -1032,7 +1032,7 @@ class axl(object):
         Get H323 Gateway parameters
         :param name: H323 Gateway name.
         :param uuid: H323 Gateway uuid. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
         :return: result Zeep object
         """
         return self._get_call(
@@ -1124,7 +1124,7 @@ class axl(object):
         Get route group
         :param name: Route group name.
         :param uuid: Route group uuid. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
         :return: result Zeep object
         """
         return self._get_call(
@@ -1208,7 +1208,7 @@ class axl(object):
         Get route list
         :param name: Route list name.
         :param uuid: Route list uuid. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
         :return: result Zeep object
         """
         return self._get_call(
@@ -1322,7 +1322,7 @@ class axl(object):
         Get partition details
         :param name: Partition name
         :param uuid: Partition UUID. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
         :return: result Zeep object
         """
         return self._get_call(
@@ -1399,7 +1399,7 @@ class axl(object):
         Get Calling search space details
         :param name: Calling search space name.
         :param uuid: Calling search space uuid. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
         :return: result Zeep object
         """
         return self._get_call(
@@ -1611,7 +1611,7 @@ class axl(object):
         Get a media resource group details
         :param name: Media resource group name.
         :param uuid: Media resource group uuid. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
         :return: result Zeep object
         """
         return self._get_call(
@@ -1686,13 +1686,14 @@ class axl(object):
         except Fault as e:
             return e
 
-    @check_tagfilter("getMediaRessourceList")
+    @check_tagfilter("getMediaResourceList")
     def get_media_resource_group_list(self, name="", *, uuid="", tagfilter={}):
         """
         Get a media resource group list details
         :param name: Media resource group list name
         :param uuid: Media resource group list uuid. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getMediaResourceList",
@@ -1776,8 +1777,9 @@ class axl(object):
 
         :param pattern: directory number pattern
         :param route_partition: directory number route partition
-        :param uuid: directory number uuid. Overrides both 'pattern' and 'route_partition'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param uuid: directory number uuid. Overrides 'pattern' and 'route_partition'.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getLine",
@@ -1951,9 +1953,10 @@ class axl(object):
     def get_cti_route_point(self, name="", *, uuid="", tagfilter={}):
         """
         Get CTI route point details
-        :param name: CTI route point name.
+        :param name: CTI route point name
         :param uuid: CTI route point uuid. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getCtiRoutePoint",
@@ -2097,9 +2100,10 @@ class axl(object):
     def get_phone(self, name="", *, uuid="", tagfilter={}):
         """
         Get device profile parameters
-        :param name: phone name.
+        :param name: phone name
         :param uuid: phone uuid. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getPhone",
@@ -2303,9 +2307,10 @@ class axl(object):
     def get_device_profile(self, name="", *, uuid="", tagfilter={}):
         """
         Get device profile parameters
-        :param name: profile name.
+        :param name: profile name
         :param uuid: profile uuid. Overrides 'name'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getDeviceProfile",
@@ -2444,7 +2449,8 @@ class axl(object):
         Get user parameters
         :param userid: profile user id
         :param uuid: profile uuid. Overrides 'userid'.
-        :param tagfilter: (optional) A list or dict of return tags. If used, only information on these tags will be returned.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getUser",
@@ -2600,60 +2606,44 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_translation(self, pattern="", routePartitionName="", uuid=""):
+    @check_tagfilter("getTransPattern")
+    def get_translation(
+        self,
+        pattern="",
+        routePartitionName="",
+        *,
+        uuid="",
+        tagfilter={
+            "pattern": "",
+            "description": "",
+            "routePartitionName": "",
+            "callingSearchSpaceName": "",
+            "useCallingPartyPhoneMask": "",
+            "patternUrgency": "",
+            "provideOutsideDialtone": "",
+            "prefixDigitsOut": "",
+            "calledPartyTransformationMask": "",
+            "callingPartyTransformationMask": "",
+            "digitDiscardInstructionName": "",
+            "callingPartyPrefixDigits": "",
+        },
+    ):
         """
         Get translation pattern
         :param pattern: translation pattern to match
         :param routePartitionName: routePartitionName required if searching pattern
-        :param uuid: translation pattern uuid
-        :return: result dictionary
+        :param uuid: translation pattern uuid. Overrides 'pattern' and 'routePartitionName'.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
-
-        if pattern != "" and routePartitionName != "" and uuid == "":
-            try:
-                return self.client.getTransPattern(
-                    pattern=pattern,
-                    routePartitionName=routePartitionName,
-                    returnedTags={
-                        "pattern": "",
-                        "description": "",
-                        "routePartitionName": "",
-                        "callingSearchSpaceName": "",
-                        "useCallingPartyPhoneMask": "",
-                        "patternUrgency": "",
-                        "provideOutsideDialtone": "",
-                        "prefixDigitsOut": "",
-                        "calledPartyTransformationMask": "",
-                        "callingPartyTransformationMask": "",
-                        "digitDiscardInstructionName": "",
-                        "callingPartyPrefixDigits": "",
-                    },
-                )
-            except Fault as e:
-                return e
-        elif uuid != "" and pattern == "" and routePartitionName == "":
-            try:
-                return self.client.getTransPattern(
-                    uuid=uuid,
-                    returnedTags={
-                        "pattern": "",
-                        "description": "",
-                        "routePartitionName": "",
-                        "callingSearchSpaceName": "",
-                        "useCallingPartyPhoneMask": "",
-                        "patternUrgency": "",
-                        "provideOutsideDialtone": "",
-                        "prefixDigitsOut": "",
-                        "calledPartyTransformationMask": "",
-                        "callingPartyTransformationMask": "",
-                        "digitDiscardInstructionName": "",
-                        "callingPartyPrefixDigits": "",
-                    },
-                )
-            except Fault as e:
-                return e
-        else:
-            return "must specify either uuid OR pattern and partition"
+        return self._get_call(
+            "getTransPattern",
+            ["return", "transPattern"],
+            pattern=pattern,
+            routePartitionName=routePartitionName,
+            uuid=uuid,
+            returnedTags=tagfilter,
+        )
 
     def add_translation(
         self,
@@ -2863,20 +2853,26 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_called_party_xform(self, **args):
+    @check_tagfilter("getCalledPartyTransformationPattern")
+    def get_called_party_xform(
+        self, pattern="", route_partition="", *, uuid="", tagfilter={}
+    ):
         """
         Get called party xform details
-        :param name:
-        :param partition:
-        :param uuid:
-        :return: result dictionary
+        :param pattern: Transformation pattern
+        :param partition: Transformation pattern's route partition
+        :param uuid: Transformation pattern uuid. Overrides 'pattern' and 'route_partition'.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
-        try:
-            return self.client.getCalledPartyTransformationPattern(**args)["return"][
-                "calledPartyTransformationPattern"
-            ]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getCalledPartyTransformationPattern",
+            ["return", "calledPartyTransformationPattern"],
+            pattern=pattern,
+            routePartitionName=route_partition,
+            uuid=uuid,
+            returnedTags=tagfilter,
+        )
 
     def add_called_party_xform(
         self,
@@ -2966,20 +2962,26 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_calling_party_xform(self, **args):
+    @check_tagfilter("getCallingPartyTransformationPattern")
+    def get_calling_party_xform(
+        self, pattern="", route_partition="", *, uuid="", tagfilter={}
+    ):
         """
         Get calling party xform details
-        :param name:
-        :param partition:
-        :param uuid:
-        :return: result dictionary
+        :param pattern: Transformation pattern
+        :param partition: Transformation pattern's route partition
+        :param uuid: Transformation pattern uuid. Overrides 'pattern' and 'route_partition'.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
-        try:
-            return self.client.getCallingPartyTransformationPattern(**args)["return"][
-                "callingPartyTransformationPattern"
-            ]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getCallingPartyTransformationPattern",
+            ["return", "callingPartyTransformationPattern"],
+            pattern=pattern,
+            routePartitionName=route_partition,
+            uuid=uuid,
+            returnedTags=tagfilter,
+        )
 
     def add_calling_party_xform(
         self,
@@ -3065,18 +3067,21 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_sip_trunk(self, name="", **kwargs):
+    @check_tagfilter("getSipTrunk")
+    def get_sip_trunk(self, name="", *, uuid="", tagfilter={}):
         """
         Get sip trunk
-        :param name:
-        :param uuid:
-        :return: result dictionary
+        :param name: Sip trunk's name
+        :param uuid: Sip trunk uuid. Overrides 'name'.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
         return self._get_call(
             "getSipTrunk",
             ["return", "sipTrunk"],
             name=name,
-            **kwargs,
+            uuid=uuid,
+            returnedTags=tagfilter,
         )
 
     def update_sip_trunk(self, **args):
@@ -3111,11 +3116,22 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_sip_profile(self, name):
-        try:
-            return self.client.getSipProfile(name=name)["return"]
-        except Fault as e:
-            return e
+    @check_tagfilter("getSipProfile")
+    def get_sip_profile(self, name="", *, uuid="", tagfilter={}):
+        """Get SIP profile
+
+        :param name: SIP profile's name.
+        :param uuid: SIP profile's uuid. Overrides 'name'.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
+        """
+        return self._get_call(
+            "getSipProfile",
+            ["return", "sipProfile"],
+            name=name,
+            uuid=uuid,
+            returnedTags=tagfilter,
+        )
 
     def add_sip_trunk(self, **args):
         """
@@ -3161,16 +3177,22 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_call_manager_group(self, name):
+    @check_tagfilter("getCallManagerGroup")
+    def get_call_manager_group(self, name="", *, uuid="", tagfilter={}):
         """
         Get call manager group
-        :param name: name of cmg
-        :return: result dictionary
+        :param name: CMG's name.
+        :param uuid: CMG's uuid. Overrides 'name'.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
-        try:
-            return self.client.getCallManagerGroup(name=name)
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getCallManagerGroup",
+            ["return", "callManagerGroup"],
+            name=name,
+            uuid=uuid,
+            returnedTags=tagfilter,
+        )
 
     def get_call_manager_groups(self):
         """
@@ -3233,17 +3255,24 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_hunt_pilot(self, **args):
+    @check_tagfilter("getHuntPilot")
+    def get_hunt_pilot(self, pattern="", route_partition="", *, uuid="", tagfilter={}):
         """
-        Get hunt pilot details
-        :param name:
-        :param partition:
-        :return: result dictionary
+        Get Hunt Pilot details
+        :param pattern: Hunt Pilot's pattern
+        :param route_partition: Hunt Pilot's route_partition
+        :param uuid: Hunt Pilot's uuid. Overrides 'pattern' and 'route_partition'.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
-        try:
-            return self.client.getHuntPilot(**args)["return"]["huntPilot"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getHuntPilot",
+            ["return", "huntPilot"],
+            pattern=pattern,
+            routePartitionName=route_partition,
+            uuid=uuid,
+            returnedTags=tagfilter,
+        )
 
     def add_hunt_pilot(self, **args):
         """
@@ -3318,17 +3347,22 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_hunt_list(self, **args):
+    @check_tagfilter("getHuntList")
+    def get_hunt_list(self, name="", *, uuid="", tagfilter={}):
         """
         Get hunt list details
-        :param name:
-        :param partition:
-        :return: result dictionary
+        :param name: Hunt List's name.
+        :param uuid: Hunt List's uuid. Overrides 'name'.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
-        try:
-            return self.client.getHuntList(**args)["return"]["huntList"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getHuntList",
+            ["return", "huntList"],
+            name=name,
+            uuid=uuid,
+            returnedTags=tagfilter,
+        )
 
     def add_hunt_list(self, **args):
         """
@@ -3401,16 +3435,22 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_line_group(self, **args):
+    @check_tagfilter("getLineGroup")
+    def get_line_group(self, name="", *, uuid="", tagfilter={}):
+        """Get a Line Group
+
+        :param name: Line Group's name.
+        :param uuid: Line Group's uuid. Overrides 'name'.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
-        Get line group details
-        :param name:
-        :return: result dictionary
-        """
-        try:
-            return self.client.getLineGroup(**args)["return"]["lineGroup"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getLineGroup",
+            ["return", "lineGroup"],
+            name=name,
+            uuid=uuid,
+            returnedTags=tagfilter,
+        )
 
     def add_line_group(self, **args):
         """
@@ -3489,18 +3529,22 @@ class axl(object):
         except Fault as e:
             return e
 
-    def get_call_pickup_group(self, **args):
+    @check_tagfilter("getCallPickupGroup")
+    def get_call_pickup_group(self, name="", *, uuid="", tagfilter={}):
         """
         Get call pickup group details
-        :param pattern:
-        :param name:
-        :param
-        :return: result dictionary
+        :param name: CPG's name.
+        :param uuid: CPG's uuid. Overrides 'name'.
+        :param tagfilter: A list or dict of return tags. If used, only information on these tags will be returned.
+        :return: result Zeep object
         """
-        try:
-            return self.client.getCallPickupGroup(**args)["return"]["callPickupGroup"]
-        except Fault as e:
-            return e
+        return self._get_call(
+            "getCallPickupGroup",
+            ["return", "callPickupGroup"],
+            name=name,
+            uuid=uuid,
+            returnedTags=tagfilter,
+        )
 
     def add_call_pickup_group(self, **args):
         """
